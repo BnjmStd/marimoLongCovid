@@ -1,0 +1,6 @@
+{
+  "reportRedeclaration": "none",
+  "reportUnusedVariable": "none",
+  "reportUnusedImport": "warning",
+  "reportMissingTypeStubs": "none"
+}

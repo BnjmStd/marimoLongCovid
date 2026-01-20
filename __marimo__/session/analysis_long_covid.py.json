@@ -1,0 +1,230 @@
+{
+  "version": "1",
+  "metadata": {
+    "marimo_version": "0.19.4"
+  },
+  "cells": [
+    {
+      "id": "MJUe",
+      "code_hash": "14b71106b4ad21105802b29ca7456670",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h1 id=\"analisis-long-covid-chile-2020-2021\">An\u00e1lisis Long COVID - Chile 2020-2021</h1>\n<h2 id=\"secciones-del-analisis\">Secciones del an\u00e1lisis:</h2>\n<ol>\n<li>Dataset truncado (variantes y long COVID)</li>\n<li>Variables de criterio (1-4)</li>\n<li>Variantes por semana epidemiol\u00f3gica</li>\n<li>Long COVID por semana (m\u00faltiples variables)</li>\n<li>An\u00e1lisis de clusters</li>\n<li>Tabla descriptiva</li>\n</ol></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "vblA",
+      "code_hash": "e6c2aab09bce802f62e2a1f46fcb0b56",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"1-cargar-datasets\">1. Cargar Datasets</h2></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "lEQa",
+      "code_hash": "abdbdeb84d8e9eff26308e20296df96e",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"2-truncar-datasets-y-generar-estadisticas\">2. Truncar Datasets y Generar Estad\u00edsticas</h2></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Xref",
+      "code_hash": "4c47d3e2952c5b747c2b24c567f4faa9",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"3-variables-de-criterio-1-4\">3. Variables de Criterio (1-4)</h2></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "RGSE",
+      "code_hash": "e8a48bb3f3f6c6b3ad4e85a2256455a7",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"4-variantes-barplot-apilado\">4. Variantes: Barplot Apilado</h2>\n<span class=\"paragraph\">11 linajes por semana epidemiol\u00f3gica + curva casos Chile</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Hstk",
+      "code_hash": "3383699e66aa1af625fe76e952f704a3",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"5-long-covid-por-semana-epidemiologica\">5. Long COVID por Semana Epidemiol\u00f3gica</h2>\n<span class=\"paragraph\">M\u00faltiples visualizaciones por diferentes variables</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "qnkX",
+      "code_hash": "7fb1b300676fc26d338567255935dc1a",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"6-analisis-de-clusters\">6. An\u00e1lisis de Clusters</h2></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Vxnm",
+      "code_hash": "94a1148d0b072b856d16d5a1491d1913",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"7-tabla-1-descriptiva\">7. Tabla 1: Descriptiva</h2></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "ecfG",
+      "code_hash": "07808a2d51b6306ecbd502349688db3e",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"8-figura-metodologica\">8. Figura Metodol\u00f3gica</h2>\n<span class=\"paragraph\"><em>Secci\u00f3n pendiente: diagrama de flujo metodol\u00f3gico</em></span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Hbol",
+      "code_hash": "43639ed0978046a7dedf8de248328e92",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "bkHC",
+      "code_hash": "1dffd1d6c76f632d1c0fe1f756513f82",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "load_long_covid() got an unexpected keyword argument 'file_type'",
+          "traceback": []
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;/tmp/marimo_13133/__marimo__cell_bkHC_.py&quot;</span>, line <span class=\"m\">2</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">df_long_covid</span> <span class=\"o\">=</span> <span class=\"n\">load_long_covid</span><span class=\"p\">(</span>\n<span class=\"w\">    </span>    <span class=\"s2\">&quot;datasets/longcovid_2020W13-2021W22.csv&quot;</span><span class=\"p\">,</span> <span class=\"n\">file_type</span><span class=\"o\">=</span><span class=\"s2\">&quot;csv&quot;</span>\n<span class=\"w\">    </span><span class=\"p\">)</span>\n<span class=\"gr\">TypeError</span>: <span class=\"n\">load_long_covid() got an unexpected keyword argument &#39;file_type&#39;</span>\n</pre></div>\n</span>",
+          "mimetype": "application/vnd.marimo+traceback"
+        }
+      ]
+    },
+    {
+      "id": "PKri",
+      "code_hash": "3420af9757310f0df4692514c5291867",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "SFPL",
+      "code_hash": "3692076b42126bb689084ac9b0039b51",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "BYtC",
+      "code_hash": "76445fdd4250a1fe1d98c605bb2c1ee7",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "Kclp",
+      "code_hash": "a2eb89c6ea61d402f717b98b03616aef",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "emfo",
+      "code_hash": "2a16d00e9bd56da70f44f8581bbd310d",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "nWHF",
+      "code_hash": "48cdf8e7f2314b2633823f959e475053",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "iLit",
+      "code_hash": "8f0cecf071b364ac09d0968c34f7b38b",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "ZHCJ",
+      "code_hash": "cdb39e1e2d2479125070523ec47de5d6",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "ROlb",
+      "code_hash": "62b3d60af9948ba28edf82ff92fd8ea9",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "TqIu",
+      "code_hash": "aeb96e020e676cc2a065d5934c777999",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "DnEU",
+      "code_hash": "85b6fb1239284200a67eecfae9b58118",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "ulZA",
+      "code_hash": "319861b53dc4a3ae15545613f61bee94",
+      "outputs": [],
+      "console": []
+    }
+  ]
+}

@@ -13,10 +13,30 @@ pip install -r requirements.txt
 ## Ejecutar
 
 ```bash
+# Versión básica (todo en un archivo)
 marimo edit analysis.py
+
+# Versión modular (recomendado)
+marimo edit analysis_modular.py
 ```
 
 Se abre en el navegador en http://localhost:2718
+
+## Estructura Modular
+
+```
+modules/
+├── __init__.py
+├── data_loader.py        # Funciones para cargar datos
+├── transformations.py    # Análisis y transformaciones con Polars
+└── visualizations.py     # Gráficos con Plotly
+```
+
+Ventajas:
+- Código reutilizable
+- Funciones testeables
+- Notebook limpio y legible
+- Separación de responsabilidades
 
 ## Cómo funciona Marimo
 
