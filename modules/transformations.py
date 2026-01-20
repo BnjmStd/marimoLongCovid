@@ -25,19 +25,55 @@ def create_criterio_variables(df: pl.DataFrame) -> pl.DataFrame:
     """
     Crea variables de criterio del 1 al 4
     
+    Criterios:
+    - Criterio 1: longCOVID (fenotipo general)
+    - Criterio 2: Síntomas recurrentes (covid==1 & sintoma_recurrente_count>1 & recuperado_3m==2)
+    - Criterio 3: Cluster (pertenece a algún cluster)
+    - Criterio 4: Secuelas (tiene secuelas)
+    
     Args:
         df: DataFrame de long COVID
     
     Returns:
         DataFrame con variables criterio_1, criterio_2, criterio_3, criterio_4
     """
-    # Aquí defines la lógica de cada criterio según tus reglas
-    # Ejemplo genérico - ajustar según tus criterios reales
     return df.with_columns([
-        pl.lit(None).alias("criterio_1"),  # Reemplazar con tu lógica
-        pl.lit(None).alias("criterio_2"),
-        pl.lit(None).alias("criterio_3"),
-        pl.lit(None).alias("criterio_4")
+        # Criterio 1: longCOVID general
+        pl.when(pl.col("longCOVID") == 1)
+        .then(1)
+        .otherwise(0)
+        .alias("criterio_1"),
+        
+        # Criterio 2: Síntomas recurrentes
+        pl.when(
+            (pl.col("covid") == 1) & 
+            (pl.col("sintoma_recurrente_count") > 1) & 
+            (pl.col("recuperado_3m") == 2)
+        )
+        .then(1)
+        .otherwise(0)
+        .alias("criterio_2"),
+        
+        # Criterio 3: COVID + pertenece_cluster_count >= 1 + No recuperado
+        # DP4 (covid == 1) & P17 (pertenece_cluster_count >= 1) & P20 (recuperado_3m == 2)
+        pl.when(
+            (pl.col("covid") == 1) & 
+            (pl.col("pertenece_cluster_count") >= 1) & 
+            (pl.col("recuperado_3m") == 2)
+        )
+        .then(1)
+        .otherwise(0)
+        .alias("criterio_3"),
+        
+        # Criterio 4: COVID + Nueva condición O Secuelas
+        # DP4 (covid == 1) & (P21 (conteo_nueva_condicion >= 1) | P22 (sec_count >= 1))
+        pl.when(
+            (pl.col("covid") == 1) & 
+            ((pl.col("conteo_nueva_condicion") >= 1) | (pl.col("sec_count") >= 1))
+        )
+        .then(1)
+        .otherwise(0)
+        .alias("criterio_4")
     ])
 
 
@@ -53,11 +89,17 @@ def count_by_criterio(df: pl.DataFrame) -> pl.DataFrame:
     """
     return pl.DataFrame({
         "criterio": ["criterio_1", "criterio_2", "criterio_3", "criterio_4"],
-        "n_casos": [
-            df.filter(pl.col("criterio_1").is_not_null()).height,
-            df.filter(pl.col("criterio_2").is_not_null()).height,
-            df.filter(pl.col("criterio_3").is_not_null()).height,
-            df.filter(pl.col("criterio_4").is_not_null()).height,
+        "cumple_criterio": [
+            df.filter(pl.col("criterio_1") == 1).height,
+            df.filter(pl.col("criterio_2") == 1).height,
+            df.filter(pl.col("criterio_3") == 1).height if "criterio_3" in df.columns else 0,
+            df.filter(pl.col("criterio_4") == 1).height if "criterio_4" in df.columns else 0,
+        ],
+        "no_cumple": [
+            df.filter(pl.col("criterio_1") == 0).height,
+            df.filter(pl.col("criterio_2") == 0).height,
+            df.filter(pl.col("criterio_3") == 0).height if "criterio_3" in df.columns else 0,
+            df.filter(pl.col("criterio_4") == 0).height if "criterio_4" in df.columns else 0,
         ]
     })
 
@@ -74,7 +116,7 @@ def aggregate_by_semana_epi(df: pl.DataFrame, group_col: str) -> pl.DataFrame:
         DataFrame agregado por semana epidemiológica
     """
     return df.group_by(["semana_epi", group_col]).agg([
-        pl.count().alias("n_casos")
+        pl.len().alias("n_casos")
     ]).sort("semana_epi")
 
 
@@ -104,7 +146,7 @@ def create_descriptive_table(df: pl.DataFrame, variables: list[str]) -> pl.DataF
             })
         else:
             # Variables categóricas
-            counts = df.group_by(var).agg(pl.count().alias("n"))
+            counts = df.group_by(var).agg(pl.len().alias("n"))
             stats_list.append({
                 "variable": var,
                 "n": df.select(pl.col(var).count()).item(),

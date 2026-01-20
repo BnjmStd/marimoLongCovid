@@ -2,5 +2,6 @@
   "reportRedeclaration": "none",
   "reportUnusedVariable": "none",
   "reportUnusedImport": "warning",
-  "reportMissingTypeStubs": "none"
+  "reportMissingTypeStubs": "none",
+  "reportUnusedExpression": "none"
 }
