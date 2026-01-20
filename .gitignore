@@ -1,0 +1,57 @@
+# marimo
+.__marimo__/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environment
+long-covid/
+venv/
+env/
+ENV/
+.venv
+
+# Marimo
+.marimo/
+.marimo_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Data
+*.csv
+*.parquet
+*.xlsx
+*.db
+*.sqlite
+data/raw/*
+data/processed/*
+!data/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Environment variables
+.env
+.env.local

@@ -1,0 +1,121 @@
+{
+  "version": "1",
+  "metadata": {
+    "marimo_version": "0.19.4"
+  },
+  "cells": [
+    {
+      "id": "MJUe",
+      "code_hash": "729d0836fbae205e35ed0f12ef8126b0",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h1 id=\"long-covid-analisis-de-datos\">Long COVID - An\u00e1lisis de Datos</h1>\n<span class=\"paragraph\">Este es un notebook reactivo de Marimo con Polars y Plotly.</span>\n<h2 id=\"stack-moderno\">Stack Moderno:</h2>\n<ul>\n<li><strong>Polars</strong>: 10-100x m\u00e1s r\u00e1pido que Pandas</li>\n<li><strong>Plotly</strong>: Gr\u00e1ficos interactivos</li>\n<li><strong>Marimo</strong>: Notebooks reactivos</li>\n</ul></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "vblA",
+      "code_hash": "125310c3b945db280a8f33bda5c8197d",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"1-cargar-datos\">1. Cargar Datos</h2></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Xref",
+      "code_hash": "1819f306452aea9c6e9214385046d9d1",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"3-visualizaciones\">3. Visualizaciones</h2></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Kclp",
+      "code_hash": "ea607c5aa1814dece034eb7a4f1923bc",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"4-agregaciones-con-polars\">4. Agregaciones con Polars</h2>\n<span class=\"paragraph\">Polars es extremadamente r\u00e1pido para operaciones groupby y agregaciones.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Hstk",
+      "code_hash": "62fd26cd2013a134b6815eb332179f85",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><hr />\n<h2 id=\"siguientes-pasos\">\ud83d\udca1 Siguientes Pasos:</h2>\n<ol>\n<li><strong>Carga tus datos reales</strong>: Reemplaza el DataFrame de ejemplo</li>\n<li><strong>Explora</strong>: Marimo recalcula autom\u00e1ticamente cuando cambias c\u00f3digo</li>\n<li><strong>A\u00f1ade m\u00e1s celdas</strong>: Click en el bot\u00f3n + para agregar an\u00e1lisis</li>\n<li><strong>Exporta</strong>: Usa <code>marimo export analysis.py</code> para HTML est\u00e1tico</li>\n</ol>\n<h3 id=\"comandos-utiles\">Comandos \u00fatiles:</h3>\n<div class=\"language-python codehilite\"><pre><span></span><code><span class=\"c1\"># Leer CSV</span>\n<span class=\"n\">df</span> <span class=\"o\">=</span> <span class=\"n\">pl</span><span class=\"o\">.</span><span class=\"n\">read_csv</span><span class=\"p\">(</span><span class=\"s2\">&quot;data/archivo.csv&quot;</span><span class=\"p\">)</span>\n\n<span class=\"c1\"># Leer Parquet (muy r\u00e1pido)</span>\n<span class=\"n\">df</span> <span class=\"o\">=</span> <span class=\"n\">pl</span><span class=\"o\">.</span><span class=\"n\">read_parquet</span><span class=\"p\">(</span><span class=\"s2\">&quot;data/archivo.parquet&quot;</span><span class=\"p\">)</span>\n\n<span class=\"c1\"># Leer Excel</span>\n<span class=\"n\">df</span> <span class=\"o\">=</span> <span class=\"n\">pl</span><span class=\"o\">.</span><span class=\"n\">read_excel</span><span class=\"p\">(</span><span class=\"s2\">&quot;data/archivo.xlsx&quot;</span><span class=\"p\">)</span>\n</code></pre></div></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Hbol",
+      "code_hash": "87c5f29d900eea365ba974755374d31a",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "bkHC",
+      "code_hash": "d339d8443e42d53a202fcc00abe3b5b6",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "lEQa",
+      "code_hash": "081b68b0d3b261f27bc026121d74030b",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "PKri",
+      "code_hash": "df25a74b34c40125d0f1ce8ab83edd19",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "SFPL",
+      "code_hash": "7c3e7942be4506856215cab9ed89735e",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "BYtC",
+      "code_hash": "2de9f40f925a7693e9d24a4aa32ac78b",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "RGSE",
+      "code_hash": "89d663bf9ed410eb86f5300b05f3cf27",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "emfo",
+      "code_hash": "aadd25c34699d90bf3c6bcb41c531935",
+      "outputs": [],
+      "console": []
+    }
+  ]
+}

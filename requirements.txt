@@ -1,0 +1,14 @@
+# Core data analysis
+polars==1.20.0
+pyarrow==18.1.0
+
+# Visualization
+plotly==5.24.1
+kaleido==0.2.1
+
+# Marimo - Modern reactive notebooks
+marimo==0.19.4
+
+# Optional utilities
+numpy==2.2.1
+pandas==2.2.3  # Por si necesitas compatibilidad
