@@ -24,7 +24,6 @@ ENV/
 *.ipynb
 
 # Data
-*.csv
 *.parquet
 *.xlsx
 *.db
