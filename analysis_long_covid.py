@@ -259,18 +259,18 @@ def _(CRITERIOS_METADATA, df_con_criterios, mo, pl, validar_criterio):
     """)
     
     # Crear tabla de validación
-    validacion_tabla = []
-    for var in CRITERIOS_METADATA[1]['variables']:
-        if var in validacion_c1['variables_validas']:
-            info = validacion_c1['variables_validas'][var]
-            validacion_tabla.append({
-                'Variable': var,
-                'Valores válidos': info['validos'],
-                '% Válido': f"{info['porcentaje_valido']:.2f}%",
-                'Valores NULL': validacion_c1['null_counts'][var]
+    _validacion_tabla = []
+    for _var in CRITERIOS_METADATA[1]['variables']:
+        if _var in validacion_c1['variables_validas']:
+            _info = validacion_c1['variables_validas'][_var]
+            _validacion_tabla.append({
+                'Variable': _var,
+                'Valores válidos': _info['validos'],
+                '% Válido': f"{_info['porcentaje_valido']:.2f}%",
+                'Valores NULL': validacion_c1['null_counts'][_var]
             })
     
-    df_validacion_c1 = pl.DataFrame(validacion_tabla)
+    df_validacion_c1 = pl.DataFrame(_validacion_tabla)
     
     (validacion_c1, df_validacion_c1)
     return df_validacion_c1, validacion_c1
@@ -392,18 +392,18 @@ def _(CRITERIOS_METADATA, df_con_criterios, mo, pl, validar_criterio):
     """)
     
     # Crear tabla de validación
-    validacion_tabla_c2 = []
-    for var in CRITERIOS_METADATA[2]['variables']:
-        if var in validacion_c2['variables_validas']:
-            info = validacion_c2['variables_validas'][var]
-            validacion_tabla_c2.append({
-                'Variable': var,
-                'Valores válidos': info['validos'],
-                '% Válido': f"{info['porcentaje_valido']:.2f}%",
-                'Valores NULL': validacion_c2['null_counts'][var]
+    _validacion_tabla_c2 = []
+    for _var in CRITERIOS_METADATA[2]['variables']:
+        if _var in validacion_c2['variables_validas']:
+            _info = validacion_c2['variables_validas'][_var]
+            _validacion_tabla_c2.append({
+                'Variable': _var,
+                'Valores válidos': _info['validos'],
+                '% Válido': f"{_info['porcentaje_valido']:.2f}%",
+                'Valores NULL': validacion_c2['null_counts'][_var]
             })
     
-    df_validacion_c2 = pl.DataFrame(validacion_tabla_c2)
+    df_validacion_c2 = pl.DataFrame(_validacion_tabla_c2)
     
     (validacion_c2, df_validacion_c2)
     return df_validacion_c2, validacion_c2
@@ -533,18 +533,18 @@ def _(CRITERIOS_METADATA, df_con_criterios, mo, pl, validar_criterio):
     """)
     
     # Crear tabla de validación
-    validacion_tabla_c3 = []
-    for var in CRITERIOS_METADATA[3]['variables']:
-        if var in validacion_c3['variables_validas']:
-            info = validacion_c3['variables_validas'][var]
-            validacion_tabla_c3.append({
-                'Variable': var,
-                'Valores válidos': info['validos'],
-                '% Válido': f"{info['porcentaje_valido']:.2f}%",
-                'Valores NULL': validacion_c3['null_counts'][var]
+    _validacion_tabla_c3 = []
+    for _var in CRITERIOS_METADATA[3]['variables']:
+        if _var in validacion_c3['variables_validas']:
+            _info = validacion_c3['variables_validas'][_var]
+            _validacion_tabla_c3.append({
+                'Variable': _var,
+                'Valores válidos': _info['validos'],
+                '% Válido': f"{_info['porcentaje_valido']:.2f}%",
+                'Valores NULL': validacion_c3['null_counts'][_var]
             })
     
-    df_validacion_c3 = pl.DataFrame(validacion_tabla_c3)
+    df_validacion_c3 = pl.DataFrame(_validacion_tabla_c3)
     
     (validacion_c3, df_validacion_c3)
     return df_validacion_c3, validacion_c3
@@ -646,18 +646,18 @@ def _(CRITERIOS_METADATA, df_con_criterios, mo, pl, validar_criterio):
     """)
     
     # Crear tabla de validación
-    validacion_tabla_c4 = []
-    for var in CRITERIOS_METADATA[4]['variables']:
-        if var in validacion_c4['variables_validas']:
-            info = validacion_c4['variables_validas'][var]
-            validacion_tabla_c4.append({
-                'Variable': var,
-                'Valores válidos': info['validos'],
-                '% Válido': f"{info['porcentaje_valido']:.2f}%",
-                'Valores NULL': validacion_c4['null_counts'][var]
+    _validacion_tabla_c4 = []
+    for _var in CRITERIOS_METADATA[4]['variables']:
+        if _var in validacion_c4['variables_validas']:
+            _info = validacion_c4['variables_validas'][_var]
+            _validacion_tabla_c4.append({
+                'Variable': _var,
+                'Valores válidos': _info['validos'],
+                '% Válido': f"{_info['porcentaje_valido']:.2f}%",
+                'Valores NULL': validacion_c4['null_counts'][_var]
             })
     
-    df_validacion_c4 = pl.DataFrame(validacion_tabla_c4)
+    df_validacion_c4 = pl.DataFrame(_validacion_tabla_c4)
     
     (validacion_c4, df_validacion_c4)
     return df_validacion_c4, validacion_c4
