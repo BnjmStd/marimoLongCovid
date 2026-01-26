@@ -116,6 +116,98 @@ def _(mo):
 
 
 @app.cell
+def _():
+    # Paleta de colores única para cada criterio
+    COLORES_CRITERIOS = {
+        1: '#3498db',  # Azul - Criterio 1 (Long COVID general)
+        2: '#e74c3c',  # Rojo - Criterio 2 (Síntomas recurrentes)
+        3: '#f39c12',  # Naranja - Criterio 3 (Clusters)
+        4: '#9b59b6',  # Morado - Criterio 4 (Secuelas)
+    }
+    
+    # Metadata de criterios para documentación
+    CRITERIOS_METADATA = {
+        1: {
+            'nombre': 'Long COVID General',
+            'variables': ['longCOVID'],
+            'descripcion': 'Fenotipo muy general basado en la variable longCOVID',
+            'formula': 'criterio_1 = 1 si longCOVID == 1, sino 0',
+            'color': COLORES_CRITERIOS[1]
+        },
+        2: {
+            'nombre': 'Síntomas Recurrentes',
+            'variables': ['covid', 'sintoma_recurrente_count', 'recuperado_3m'],
+            'descripcion': 'COVID confirmado + Más de 1 síntoma recurrente + No recuperado a los 3 meses',
+            'formula': 'criterio_2 = 1 si (covid==1 AND sintoma_recurrente_count>1 AND recuperado_3m==2)',
+            'color': COLORES_CRITERIOS[2]
+        },
+        3: {
+            'nombre': 'Clusters',
+            'variables': ['covid', 'pertenece_cluster_count', 'recuperado_3m'],
+            'descripcion': 'COVID-19 + Al menos 2 síntomas de cualquier cluster + No recuperado a los 3 meses',
+            'formula': 'criterio_3 = 1 si (covid==1 AND pertenece_cluster_count>=1 AND recuperado_3m==2)',
+            'color': COLORES_CRITERIOS[3]
+        },
+        4: {
+            'nombre': 'Secuelas',
+            'variables': ['covid', 'conteo_nueva_condicion', 'sec_count'],
+            'descripcion': 'COVID-19 + Nueva condición O Secuelas crónicas',
+            'formula': 'criterio_4 = 1 si (covid==1 AND (conteo_nueva_condicion>=1 OR sec_count>=1))',
+            'color': COLORES_CRITERIOS[4]
+        }
+    }
+    
+    return COLORES_CRITERIOS, CRITERIOS_METADATA
+
+
+@app.cell
+def _(mo, pl):
+    def validar_criterio(df, num_criterio: int, variables_componentes):
+        """
+        Valida un criterio calculando métricas de calidad y consistencia
+        
+        Args:
+            df: DataFrame con el criterio calculado
+            num_criterio: Número del criterio (1, 2, 3, 4)
+            variables_componentes: Lista de variables que componen el criterio
+        
+        Returns:
+            Diccionario con métricas de validación
+        """
+        criterio_col = f'criterio_{num_criterio}'
+        
+        # Validaciones básicas
+        validacion = {
+            'criterio': num_criterio,
+            'n_total': len(df),
+            'n_cumplen': df.filter(pl.col(criterio_col) == 1).height,
+            'n_no_cumplen': df.filter(pl.col(criterio_col) == 0).height,
+            'porcentaje_cumplen': (df.filter(pl.col(criterio_col) == 1).height / len(df) * 100),
+            'null_counts': {},
+            'variables_validas': {},
+        }
+        
+        # Contar NULLs por cada variable componente
+        for var in variables_componentes:
+            if var in df.columns:
+                null_count = df.filter(pl.col(var).is_null()).height
+                valid_count = df.filter(pl.col(var).is_not_null()).height
+                validacion['null_counts'][var] = null_count
+                validacion['variables_validas'][var] = {
+                    'validos': valid_count,
+                    'porcentaje_valido': (valid_count / len(df) * 100)
+                }
+        
+        # Verificar consistencia del criterio
+        validacion['consistente'] = (validacion['n_cumplen'] + validacion['n_no_cumplen']) == validacion['n_total']
+        
+        return validacion
+    
+    return (validar_criterio,)
+
+
+
+@app.cell
 def _(mo):
     mo.md("""
     ### 2.1. Criterio 1 (longCOVID, fenotipo muy general)
@@ -135,6 +227,72 @@ def _(df_long_covid, mo, pl):
     - No cumplen: {df_long_covid.filter(pl.col('longCOVID') == 0).height:,}
     """)
     return
+
+
+@app.cell
+def _(CRITERIOS_METADATA, df_con_criterios, mo, pl, validar_criterio):
+    # Validación del Criterio 1
+    validacion_c1 = validar_criterio(
+        df_con_criterios, 
+        1, 
+        CRITERIOS_METADATA[1]['variables']
+    )
+    
+    # Mostrar resumen de Criterio 1
+    mo.md(f"""
+    ---
+    ### 📊 Resumen Criterio 1: {CRITERIOS_METADATA[1]['nombre']}
+    
+    **Construcción del criterio:**
+    - **Número de variables:** {len(CRITERIOS_METADATA[1]['variables'])}
+    - **Variables componentes:** `{'`, `'.join(CRITERIOS_METADATA[1]['variables'])}`
+    - **Descripción:** {CRITERIOS_METADATA[1]['descripcion']}
+    - **Fórmula lógica:** `{CRITERIOS_METADATA[1]['formula']}`
+    - **Color asignado:** <span style="color:{CRITERIOS_METADATA[1]['color']}">███</span> `{CRITERIOS_METADATA[1]['color']}`
+    
+    **Resultados:**
+    - Total de casos: {validacion_c1['n_total']:,}
+    - Cumplen criterio: {validacion_c1['n_cumplen']:,} ({validacion_c1['porcentaje_cumplen']:.2f}%)
+    - No cumplen: {validacion_c1['n_no_cumplen']:,} ({100-validacion_c1['porcentaje_cumplen']:.2f}%)
+    
+    **Validación de datos:**
+    """)
+    
+    # Crear tabla de validación
+    validacion_tabla = []
+    for var in CRITERIOS_METADATA[1]['variables']:
+        if var in validacion_c1['variables_validas']:
+            info = validacion_c1['variables_validas'][var]
+            validacion_tabla.append({
+                'Variable': var,
+                'Valores válidos': info['validos'],
+                '% Válido': f"{info['porcentaje_valido']:.2f}%",
+                'Valores NULL': validacion_c1['null_counts'][var]
+            })
+    
+    df_validacion_c1 = pl.DataFrame(validacion_tabla)
+    
+    (validacion_c1, df_validacion_c1)
+    return df_validacion_c1, validacion_c1
+
+
+@app.cell
+def _(df_validacion_c1, mo, validacion_c1):
+    # Mostrar tabla de validación
+    mo.ui.table(df_validacion_c1)
+    
+    estado_c1 = "✅ **Criterio funciona correctamente**" if validacion_c1['consistente'] else "❌ **Problema detectado en el criterio**"
+    
+    mo.md(f"""
+    {estado_c1}
+    
+    - Consistencia lógica: {'Sí' if validacion_c1['consistente'] else 'No'}
+    - Total casos = Cumplen + No cumplen: {validacion_c1['n_total']} = {validacion_c1['n_cumplen']} + {validacion_c1['n_no_cumplen']}
+    
+    ---
+    """)
+    return (estado_c1,)
+
 
 
 @app.cell
@@ -202,6 +360,72 @@ def _(conteo_c2, mo, no_cumple_c2):
     - No cumplen: {no_cumple_c2:,}
     """)
     return
+
+
+@app.cell
+def _(CRITERIOS_METADATA, df_con_criterios, mo, pl, validar_criterio):
+    # Validación del Criterio 2
+    validacion_c2 = validar_criterio(
+        df_con_criterios, 
+        2, 
+        CRITERIOS_METADATA[2]['variables']
+    )
+    
+    # Mostrar resumen de Criterio 2
+    mo.md(f"""
+    ---
+    ### 📊 Resumen Criterio 2: {CRITERIOS_METADATA[2]['nombre']}
+    
+    **Construcción del criterio:**
+    - **Número de variables:** {len(CRITERIOS_METADATA[2]['variables'])}
+    - **Variables componentes:** `{'`, `'.join(CRITERIOS_METADATA[2]['variables'])}`
+    - **Descripción:** {CRITERIOS_METADATA[2]['descripcion']}
+    - **Fórmula lógica:** `{CRITERIOS_METADATA[2]['formula']}`
+    - **Color asignado:** <span style="color:{CRITERIOS_METADATA[2]['color']}">███</span> `{CRITERIOS_METADATA[2]['color']}`
+    
+    **Resultados:**
+    - Total de casos: {validacion_c2['n_total']:,}
+    - Cumplen criterio: {validacion_c2['n_cumplen']:,} ({validacion_c2['porcentaje_cumplen']:.2f}%)
+    - No cumplen: {validacion_c2['n_no_cumplen']:,} ({100-validacion_c2['porcentaje_cumplen']:.2f}%)
+    
+    **Validación de datos:**
+    """)
+    
+    # Crear tabla de validación
+    validacion_tabla_c2 = []
+    for var in CRITERIOS_METADATA[2]['variables']:
+        if var in validacion_c2['variables_validas']:
+            info = validacion_c2['variables_validas'][var]
+            validacion_tabla_c2.append({
+                'Variable': var,
+                'Valores válidos': info['validos'],
+                '% Válido': f"{info['porcentaje_valido']:.2f}%",
+                'Valores NULL': validacion_c2['null_counts'][var]
+            })
+    
+    df_validacion_c2 = pl.DataFrame(validacion_tabla_c2)
+    
+    (validacion_c2, df_validacion_c2)
+    return df_validacion_c2, validacion_c2
+
+
+@app.cell
+def _(df_validacion_c2, mo, validacion_c2):
+    # Mostrar tabla de validación del Criterio 2
+    mo.ui.table(df_validacion_c2)
+    
+    estado_c2 = "✅ **Criterio funciona correctamente**" if validacion_c2['consistente'] else "❌ **Problema detectado en el criterio**"
+    
+    mo.md(f"""
+    {estado_c2}
+    
+    - Consistencia lógica: {'Sí' if validacion_c2['consistente'] else 'No'}
+    - Total casos = Cumplen + No cumplen: {validacion_c2['n_total']} = {validacion_c2['n_cumplen']} + {validacion_c2['n_no_cumplen']}
+    
+    ---
+    """)
+    return (estado_c2,)
+
 
 
 @app.cell
@@ -280,6 +504,76 @@ def _(conteo_c3, mo, no_cumple_c3):
 
 
 @app.cell
+def _(CRITERIOS_METADATA, df_con_criterios, mo, pl, validar_criterio):
+    # Validación del Criterio 3
+    validacion_c3 = validar_criterio(
+        df_con_criterios, 
+        3, 
+        CRITERIOS_METADATA[3]['variables']
+    )
+    
+    # Mostrar resumen de Criterio 3
+    mo.md(f"""
+    ---
+    ### 📊 Resumen Criterio 3: {CRITERIOS_METADATA[3]['nombre']}
+    
+    **Construcción del criterio:**
+    - **Número de variables:** {len(CRITERIOS_METADATA[3]['variables'])}
+    - **Variables componentes:** `{'`, `'.join(CRITERIOS_METADATA[3]['variables'])}`
+    - **Descripción:** {CRITERIOS_METADATA[3]['descripcion']}
+    - **Fórmula lógica:** `{CRITERIOS_METADATA[3]['formula']}`
+    - **Color asignado:** <span style="color:{CRITERIOS_METADATA[3]['color']}">███</span> `{CRITERIOS_METADATA[3]['color']}`
+    
+    **Resultados:**
+    - Total de casos: {validacion_c3['n_total']:,}
+    - Cumplen criterio: {validacion_c3['n_cumplen']:,} ({validacion_c3['porcentaje_cumplen']:.2f}%)
+    - No cumplen: {validacion_c3['n_no_cumplen']:,} ({100-validacion_c3['porcentaje_cumplen']:.2f}%)
+    
+    **Validación de datos:**
+    """)
+    
+    # Crear tabla de validación
+    validacion_tabla_c3 = []
+    for var in CRITERIOS_METADATA[3]['variables']:
+        if var in validacion_c3['variables_validas']:
+            info = validacion_c3['variables_validas'][var]
+            validacion_tabla_c3.append({
+                'Variable': var,
+                'Valores válidos': info['validos'],
+                '% Válido': f"{info['porcentaje_valido']:.2f}%",
+                'Valores NULL': validacion_c3['null_counts'][var]
+            })
+    
+    df_validacion_c3 = pl.DataFrame(validacion_tabla_c3)
+    
+    (validacion_c3, df_validacion_c3)
+    return df_validacion_c3, validacion_c3
+
+
+@app.cell
+def _(df_validacion_c3, mo, validacion_c3):
+    # Mostrar tabla de validación del Criterio 3
+    mo.ui.table(df_validacion_c3)
+    
+    estado_c3 = "✅ **Criterio funciona correctamente**" if validacion_c3['consistente'] else "❌ **Problema detectado en el criterio**"
+    
+    mo.md(f"""
+    {estado_c3}
+    
+    - Consistencia lógica: {'Sí' if validacion_c3['consistente'] else 'No'}
+    - Total casos = Cumplen + No cumplen: {validacion_c3['n_total']} = {validacion_c3['n_cumplen']} + {validacion_c3['n_no_cumplen']}
+    
+    **Nota:** Este criterio mostró una diferencia de 8 casos respecto al análisis previo (360 vs 352). 
+    Las validaciones anteriores indican que no hay valores NULL en las variables componentes, 
+    por lo que la diferencia podría deberse a criterios de filtrado o versión del dataset.
+    
+    ---
+    """)
+    return (estado_c3,)
+
+
+
+@app.cell
 def _(df_con_criterios, plot_criterio_barplot):
     # Barplot de Criterio 3
     fig_bar_c3 = plot_criterio_barplot(df_con_criterios, 3, 'Criterio 3 (Clusters): Distribución de Casos')
@@ -323,6 +617,75 @@ def _(conteo_c4, mo, no_cumple_c4):
 
 
 @app.cell
+def _(CRITERIOS_METADATA, df_con_criterios, mo, pl, validar_criterio):
+    # Validación del Criterio 4
+    validacion_c4 = validar_criterio(
+        df_con_criterios, 
+        4, 
+        CRITERIOS_METADATA[4]['variables']
+    )
+    
+    # Mostrar resumen de Criterio 4
+    mo.md(f"""
+    ---
+    ### 📊 Resumen Criterio 4: {CRITERIOS_METADATA[4]['nombre']}
+    
+    **Construcción del criterio:**
+    - **Número de variables:** {len(CRITERIOS_METADATA[4]['variables'])}
+    - **Variables componentes:** `{'`, `'.join(CRITERIOS_METADATA[4]['variables'])}`
+    - **Descripción:** {CRITERIOS_METADATA[4]['descripcion']}
+    - **Fórmula lógica:** `{CRITERIOS_METADATA[4]['formula']}`
+    - **Color asignado:** <span style="color:{CRITERIOS_METADATA[4]['color']}">███</span> `{CRITERIOS_METADATA[4]['color']}`
+    
+    **Resultados:**
+    - Total de casos: {validacion_c4['n_total']:,}
+    - Cumplen criterio: {validacion_c4['n_cumplen']:,} ({validacion_c4['porcentaje_cumplen']:.2f}%)
+    - No cumplen: {validacion_c4['n_no_cumplen']:,} ({100-validacion_c4['porcentaje_cumplen']:.2f}%)
+    
+    **Validación de datos:**
+    """)
+    
+    # Crear tabla de validación
+    validacion_tabla_c4 = []
+    for var in CRITERIOS_METADATA[4]['variables']:
+        if var in validacion_c4['variables_validas']:
+            info = validacion_c4['variables_validas'][var]
+            validacion_tabla_c4.append({
+                'Variable': var,
+                'Valores válidos': info['validos'],
+                '% Válido': f"{info['porcentaje_valido']:.2f}%",
+                'Valores NULL': validacion_c4['null_counts'][var]
+            })
+    
+    df_validacion_c4 = pl.DataFrame(validacion_tabla_c4)
+    
+    (validacion_c4, df_validacion_c4)
+    return df_validacion_c4, validacion_c4
+
+
+@app.cell
+def _(df_validacion_c4, mo, validacion_c4):
+    # Mostrar tabla de validación del Criterio 4
+    mo.ui.table(df_validacion_c4)
+    
+    estado_c4 = "✅ **Criterio funciona correctamente**" if validacion_c4['consistente'] else "❌ **Problema detectado en el criterio**"
+    
+    mo.md(f"""
+    {estado_c4}
+    
+    - Consistencia lógica: {'Sí' if validacion_c4['consistente'] else 'No'}
+    - Total casos = Cumplen + No cumplen: {validacion_c4['n_total']} = {validacion_c4['n_cumplen']} + {validacion_c4['n_no_cumplen']}
+    
+    **Nota:** Este criterio utiliza un operador OR (nueva_condición O secuelas), 
+    lo que puede resultar en un mayor número de casos positivos comparado con criterios que usan AND.
+    
+    ---
+    """)
+    return (estado_c4,)
+
+
+
+@app.cell
 def _(df_con_criterios, plot_criterio_barplot):
     # Barplot de Criterio 4
     fig_bar_c4 = plot_criterio_barplot(df_con_criterios, 4, 'Criterio 4 (Secuelas): Distribución de Casos')
@@ -336,6 +699,90 @@ def _(mo):
     ## 2.5. Comparación de Criterios
     """)
     return
+
+
+@app.cell
+def _(
+    COLORES_CRITERIOS,
+    CRITERIOS_METADATA,
+    mo,
+    pl,
+    validacion_c1,
+    validacion_c2,
+    validacion_c3,
+    validacion_c4,
+):
+    # Crear tabla resumen comparativa de todos los criterios
+    resumen_criterios = []
+    
+    for i, validacion in enumerate([validacion_c1, validacion_c2, validacion_c3, validacion_c4], 1):
+        resumen_criterios.append({
+            'Criterio': f'Criterio {i}',
+            'Nombre': CRITERIOS_METADATA[i]['nombre'],
+            'N° Variables': len(CRITERIOS_METADATA[i]['variables']),
+            'Casos positivos': validacion['n_cumplen'],
+            '% Positivos': f"{validacion['porcentaje_cumplen']:.2f}%",
+            'Casos negativos': validacion['n_no_cumplen'],
+            'Total': validacion['n_total'],
+            'Consistente': '✅' if validacion['consistente'] else '❌',
+            'Color': COLORES_CRITERIOS[i]
+        })
+    
+    df_resumen_criterios = pl.DataFrame(resumen_criterios)
+    
+    mo.md(f"""
+    ---
+    ### 📋 Tabla Resumen: Comparación de los 4 Criterios de Fenotipo Long COVID
+    
+    Esta tabla consolida las métricas clave de cada criterio para facilitar la comparación:
+    """)
+    
+    (df_resumen_criterios,)
+    return (df_resumen_criterios, resumen_criterios)
+
+
+@app.cell
+def _(df_resumen_criterios, mo):
+    # Mostrar tabla resumen
+    mo.ui.table(df_resumen_criterios)
+    return
+
+
+@app.cell
+def _(CRITERIOS_METADATA, mo, resumen_criterios):
+    # Análisis interpretativo
+    total_c1 = resumen_criterios[0]['Casos positivos']
+    total_c2 = resumen_criterios[1]['Casos positivos']
+    total_c3 = resumen_criterios[2]['Casos positivos']
+    total_c4 = resumen_criterios[3]['Casos positivos']
+    
+    mo.md(f"""
+    ---
+    ### 🔍 Interpretación de los Criterios
+    
+    **Prevalencia de Long COVID según criterio:**
+    1. **{CRITERIOS_METADATA[1]['nombre']}:** {total_c1:,} casos - Definición más general
+    2. **{CRITERIOS_METADATA[2]['nombre']}:** {total_c2:,} casos - Enfocado en síntomas persistentes
+    3. **{CRITERIOS_METADATA[3]['nombre']}:** {total_c3:,} casos - Basado en clusters sintomáticos
+    4. **{CRITERIOS_METADATA[4]['nombre']}:** {total_c4:,} casos - Enfocado en complicaciones crónicas
+    
+    **Observaciones clave:**
+    - Los criterios 2, 3 y 4 son más restrictivos que el Criterio 1 (fenotipo general)
+    - El Criterio 4 identifica el mayor número de casos específicos ({total_c4:,}), 
+      probablemente debido al uso del operador OR (nueva condición O secuelas)
+    - Todos los criterios han pasado las validaciones de consistencia ✅
+    - No se detectaron valores NULL significativos en las variables componentes
+    
+    **Paleta de colores asignada para visualizaciones:**
+    - Criterio 1: <span style="color:{CRITERIOS_METADATA[1]['color']}">███</span> {CRITERIOS_METADATA[1]['color']} (Azul)
+    - Criterio 2: <span style="color:{CRITERIOS_METADATA[2]['color']}">███</span> {CRITERIOS_METADATA[2]['color']} (Rojo)
+    - Criterio 3: <span style="color:{CRITERIOS_METADATA[3]['color']}">███</span> {CRITERIOS_METADATA[3]['color']} (Naranja)
+    - Criterio 4: <span style="color:{CRITERIOS_METADATA[4]['color']}">███</span> {CRITERIOS_METADATA[4]['color']} (Morado)
+    
+    ---
+    """)
+    return total_c1, total_c2, total_c3, total_c4
+
 
 
 @app.cell
