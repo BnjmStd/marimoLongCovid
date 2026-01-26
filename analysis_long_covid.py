@@ -21,6 +21,8 @@ def _():
         plot_criterio_comparison,
         plot_criterio1_by_week,
         plot_criterio2_sintomas,
+        plot_criterio2_promedio_sintomas,
+        plot_criterio2_promedio_sintomas_by_week,
         plot_criterio2_recovery,
         plot_longcovid_by_week,
         plot_sintomas_recurrentes_by_week,
@@ -41,6 +43,8 @@ def _():
         plot_criterio1_by_week,
         plot_criterio2_recovery,
         plot_criterio2_sintomas,
+        plot_criterio2_promedio_sintomas,
+        plot_criterio2_promedio_sintomas_by_week,
         plot_criterio_barplot,
         plot_criterio_comparison,
         plot_dataset_overview,
@@ -304,11 +308,16 @@ def _(create_criterio_variables, df_long_covid):
 
 
 @app.cell
-def _(df_con_criterios, plot_criterio_barplot):
+def _(CRITERIOS_METADATA, df_con_criterios, plot_criterio_barplot):
     # Barplot de Criterio 1
-    fig_bar_c1 = plot_criterio_barplot(df_con_criterios, 1, 'Criterio 1 (Long COVID): Distribución de Casos')
+    fig_bar_c1 = plot_criterio_barplot(
+        df_con_criterios, 
+        1, 
+        'Criterio 1 (Long COVID): Distribución de Casos',
+        CRITERIOS_METADATA[1]['color']
+    )
     fig_bar_c1
-    return
+    return (fig_bar_c1,)
 
 
 @app.cell
@@ -429,11 +438,16 @@ def _(df_validacion_c2, mo, validacion_c2):
 
 
 @app.cell
-def _(df_con_criterios, plot_criterio_barplot):
+def _(CRITERIOS_METADATA, df_con_criterios, plot_criterio_barplot):
     # Barplot de Criterio 2
-    fig_bar_c2 = plot_criterio_barplot(df_con_criterios, 2, 'Criterio 2 (Síntomas Recurrentes): Distribución de Casos')
+    fig_bar_c2 = plot_criterio_barplot(
+        df_con_criterios, 
+        2, 
+        'Criterio 2 (Síntomas Recurrentes): Distribución de Casos',
+        CRITERIOS_METADATA[2]['color']
+    )
     fig_bar_c2
-    return
+    return (fig_bar_c2,)
 
 
 @app.cell
@@ -445,10 +459,66 @@ def _(mo):
 
 
 @app.cell
+def _(CRITERIOS_METADATA, df_con_criterios, plot_criterio2_promedio_sintomas):
+    # Promedio de síntomas recurrentes
+    fig_c2_promedio = plot_criterio2_promedio_sintomas(
+        df_con_criterios, 
+        CRITERIOS_METADATA[2]['color']
+    )
+    fig_c2_promedio
+    return (fig_c2_promedio,)
+
+
+@app.cell
+def _(mo):
+    mo.md("""
+    **Interpretación:** Este gráfico compara el promedio de síntomas recurrentes entre dos grupos:
+    - **Cumple Criterio 2** (rojo): Casos con COVID-19 confirmado, más de 1 síntoma recurrente y no recuperados a los 3 meses
+    - **No Cumple** (gris): Resto de casos
+    
+    El promedio general de síntomas en el dataset es mostrado en el indicador de la izquierda.
+    """)
+    return
+
+
+@app.cell
+def _(CRITERIOS_METADATA, df_con_criterios, plot_criterio2_promedio_sintomas_by_week):
+    # Evolución temporal del promedio de síntomas
+    fig_c2_promedio_week = plot_criterio2_promedio_sintomas_by_week(
+        df_con_criterios,
+        CRITERIOS_METADATA[2]['color']
+    )
+    fig_c2_promedio_week
+    return (fig_c2_promedio_week,)
+
+
+@app.cell
+def _(mo):
+    mo.md("""
+    **Interpretación:** Este gráfico muestra cómo evoluciona el promedio de síntomas recurrentes a lo largo del tiempo:
+    - La línea **roja** representa el promedio semanal para casos que cumplen el Criterio 2
+    - La línea **gris** representa el promedio semanal para casos que no cumplen el Criterio 2
+    - La línea punteada marca el umbral de >1 síntoma (requisito del Criterio 2)
+    
+    Permite identificar si hay patrones temporales en la severidad sintomática.
+    """)
+    return
+
+
+@app.cell
 def _(df_con_criterios, plot_criterio2_sintomas):
     # Distribución de síntomas recurrentes
     fig_c2_sintomas = plot_criterio2_sintomas(df_con_criterios)
     fig_c2_sintomas
+    return (fig_c2_sintomas,)
+
+
+@app.cell
+def _(mo):
+    mo.md("""
+    **Interpretación:** Este gráfico muestra la distribución de casos según el número de síntomas recurrentes (0, 1, 2, 3, 4+).
+    Permite visualizar cuántas personas experimentan diferentes niveles de carga sintomática, independientemente de si cumplen o no el Criterio 2.
+    """)
     return
 
 
@@ -574,11 +644,16 @@ def _(df_validacion_c3, mo, validacion_c3):
 
 
 @app.cell
-def _(df_con_criterios, plot_criterio_barplot):
+def _(CRITERIOS_METADATA, df_con_criterios, plot_criterio_barplot):
     # Barplot de Criterio 3
-    fig_bar_c3 = plot_criterio_barplot(df_con_criterios, 3, 'Criterio 3 (Clusters): Distribución de Casos')
+    fig_bar_c3 = plot_criterio_barplot(
+        df_con_criterios, 
+        3, 
+        'Criterio 3 (Clusters): Distribución de Casos',
+        CRITERIOS_METADATA[3]['color']
+    )
     fig_bar_c3
-    return
+    return (fig_bar_c3,)
 
 
 @app.cell
@@ -686,11 +761,16 @@ def _(df_validacion_c4, mo, validacion_c4):
 
 
 @app.cell
-def _(df_con_criterios, plot_criterio_barplot):
+def _(CRITERIOS_METADATA, df_con_criterios, plot_criterio_barplot):
     # Barplot de Criterio 4
-    fig_bar_c4 = plot_criterio_barplot(df_con_criterios, 4, 'Criterio 4 (Secuelas): Distribución de Casos')
+    fig_bar_c4 = plot_criterio_barplot(
+        df_con_criterios, 
+        4, 
+        'Criterio 4 (Secuelas): Distribución de Casos',
+        CRITERIOS_METADATA[4]['color']
+    )
     fig_bar_c4
-    return
+    return (fig_bar_c4,)
 
 
 @app.cell
@@ -786,11 +866,11 @@ def _(CRITERIOS_METADATA, mo, resumen_criterios):
 
 
 @app.cell
-def _(df_con_criterios, plot_criterio_comparison):
+def _(COLORES_CRITERIOS, df_con_criterios, plot_criterio_comparison):
     # Comparación visual de todos los criterios
-    fig_criterios = plot_criterio_comparison(df_con_criterios)
+    fig_criterios = plot_criterio_comparison(df_con_criterios, COLORES_CRITERIOS)
     fig_criterios
-    return
+    return (fig_criterios,)
 
 
 @app.cell

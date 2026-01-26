@@ -24,6 +24,8 @@ from .visualizations import (
     plot_criterio_comparison,
     plot_criterio1_by_week,
     plot_criterio2_sintomas,
+    plot_criterio2_promedio_sintomas,
+    plot_criterio2_promedio_sintomas_by_week,
     plot_criterio2_recovery,
     plot_longcovid_by_week,
     plot_sintomas_recurrentes_by_week,

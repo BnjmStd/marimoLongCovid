@@ -71,16 +71,26 @@ def plot_dataset_overview(df: pl.DataFrame) -> go.Figure:
     return fig
 
 
-def plot_criterio_comparison(df: pl.DataFrame) -> go.Figure:
+def plot_criterio_comparison(df: pl.DataFrame, colores_criterios: dict | None = None) -> go.Figure:
     """
     Comparación de todos los criterios en un solo gráfico
     
     Args:
         df: DataFrame con criterios calculados
+        colores_criterios: Diccionario con colores por criterio {1: '#color1', 2: '#color2', ...}
     
     Returns:
         Figura de barras comparando criterios
     """
+    # Colores por defecto si no se proporcionan
+    if colores_criterios is None:
+        colores_criterios = {
+            1: '#3498db',
+            2: '#e74c3c',
+            3: '#f39c12',
+            4: '#9b59b6'
+        }
+    
     criterios_data = []
     for i in range(1, 5):
         col = f'criterio_{i}'
@@ -88,6 +98,7 @@ def plot_criterio_comparison(df: pl.DataFrame) -> go.Figure:
             cumplen = df.filter(pl.col(col) == 1).height
             criterios_data.append({
                 'criterio': f'Criterio {i}',
+                'num_criterio': i,
                 'cumplen': cumplen,
                 'no_cumplen': df.filter(pl.col(col) == 0).height,
                 'total': len(df)
@@ -97,23 +108,30 @@ def plot_criterio_comparison(df: pl.DataFrame) -> go.Figure:
     
     fig = go.Figure()
     
-    fig.add_trace(go.Bar(
-        name='Cumplen',
-        x=df_plot['criterio'].to_list(),
-        y=df_plot['cumplen'].to_list(),
-        marker_color='#2ecc71',
-        text=df_plot['cumplen'].to_list(),
-        textposition='auto',
-    ))
+    # Agregar barras de "Cumplen" con colores individuales por criterio
+    for row in df_plot.iter_rows(named=True):
+        fig.add_trace(go.Bar(
+            name=row['criterio'],
+            x=[row['criterio']],
+            y=[row['cumplen']],
+            marker_color=colores_criterios[row['num_criterio']],
+            text=[row['cumplen']],
+            textposition='auto',
+            showlegend=True,
+            legendgroup='cumplen'
+        ))
     
-    fig.add_trace(go.Bar(
-        name='No cumplen',
-        x=df_plot['criterio'].to_list(),
-        y=df_plot['no_cumplen'].to_list(),
-        marker_color='#e74c3c',
-        text=df_plot['no_cumplen'].to_list(),
-        textposition='auto',
-    ))
+    # Agregar barras de "No cumplen" en gris
+    for row in df_plot.iter_rows(named=True):
+        fig.add_trace(go.Bar(
+            name=f"{row['criterio']} (No cumple)",
+            x=[row['criterio']],
+            y=[row['no_cumplen']],
+            marker_color='#95a5a6',
+            text=[row['no_cumplen']],
+            textposition='auto',
+            showlegend=False
+        ))
     
     fig.update_layout(
         title='Comparación de Criterios Long COVID',
@@ -161,6 +179,180 @@ def plot_criterio1_by_week(df: pl.DataFrame) -> go.Figure:
         template='plotly_white',
         hovermode='x unified',
         height=500
+    )
+    
+    return fig
+
+
+def plot_criterio2_promedio_sintomas(df: pl.DataFrame, color_criterio: str = '#e74c3c') -> go.Figure:
+    """
+    Promedio de síntomas recurrentes: comparación entre casos que cumplen y no cumplen Criterio 2
+    
+    Args:
+        df: DataFrame con sintoma_recurrente_count y criterio_2
+        color_criterio: Color del criterio para visualización
+    
+    Returns:
+        Figura con comparación de promedios
+    """
+    # Calcular promedios
+    promedio_cumplen = df.filter(pl.col('criterio_2') == 1).select(
+        pl.col('sintoma_recurrente_count').mean().alias('promedio')
+    ).item(0, 0)
+    
+    promedio_no_cumplen = df.filter(pl.col('criterio_2') == 0).select(
+        pl.col('sintoma_recurrente_count').mean().alias('promedio')
+    ).item(0, 0)
+    
+    promedio_total = df.select(
+        pl.col('sintoma_recurrente_count').mean().alias('promedio')
+    ).item(0, 0)
+    
+    # Crear figura con subplots: indicadores y barplot
+    fig = make_subplots(
+        rows=1, cols=2,
+        specs=[[{"type": "indicator"}, {"type": "bar"}]],
+        subplot_titles=('', '')  # Títulos vacíos, usamos los títulos dentro de cada gráfico
+    )
+    
+    # Indicador de promedio general
+    fig.add_trace(
+        go.Indicator(
+            mode="number+delta",
+            value=promedio_total,
+            title={"text": "Promedio de Síntomas<br>Recurrentes"},
+            number={'valueformat': '.2f'},
+            delta={'reference': 2, 'relative': False},
+            domain={'x': [0, 1], 'y': [0, 1]}
+        ),
+        row=1, col=1
+    )
+    
+    # Barplot comparativo
+    fig.add_trace(
+        go.Bar(
+            name='Cumple Criterio 2',
+            x=['Cumple Criterio 2'],
+            y=[promedio_cumplen],
+            marker_color=color_criterio,
+            text=[f'{promedio_cumplen:.2f}'],
+            textposition='outside'
+        ),
+        row=1, col=2
+    )
+    
+    fig.add_trace(
+        go.Bar(
+            name='No Cumple',
+            x=['No Cumple'],
+            y=[promedio_no_cumplen],
+            marker_color='#95a5a6',
+            text=[f'{promedio_no_cumplen:.2f}'],
+            textposition='outside'
+        ),
+        row=1, col=2
+    )
+    
+    fig.update_layout(
+        title='Criterio 2: Promedio de Síntomas Recurrentes',
+        template='plotly_white',
+        height=400,
+        showlegend=False
+    )
+    
+    fig.update_yaxes(title_text="Promedio de Síntomas", row=1, col=2)
+    
+    return fig
+
+
+def plot_criterio2_promedio_sintomas_by_week(df: pl.DataFrame, color_criterio: str = '#e74c3c') -> go.Figure:
+    """
+    Evolución del promedio de síntomas recurrentes por semana epidemiológica
+    Compara casos que cumplen vs no cumplen Criterio 2
+    
+    Args:
+        df: DataFrame con sintoma_recurrente_count, criterio_2 y yearweek
+        color_criterio: Color del criterio para visualización
+    
+    Returns:
+        Figura con líneas temporales de promedios
+    """
+    # Obtener todas las semanas únicas
+    all_weeks = sorted(df.select('yearweek').unique().to_series().to_list())
+    
+    # Calcular promedio por semana para casos que cumplen criterio 2
+    promedio_cumplen_week = df.filter(pl.col('criterio_2') == 1).group_by('yearweek').agg(
+        pl.col('sintoma_recurrente_count').mean().alias('promedio'),
+        pl.len().alias('n_casos')
+    ).sort('yearweek')
+    
+    # Calcular promedio por semana para casos que NO cumplen criterio 2
+    promedio_no_cumplen_week = df.filter(pl.col('criterio_2') == 0).group_by('yearweek').agg(
+        pl.col('sintoma_recurrente_count').mean().alias('promedio'),
+        pl.len().alias('n_casos')
+    ).sort('yearweek')
+    
+    # Crear diccionarios para todas las semanas
+    cumplen_dict = {week: None for week in all_weeks}
+    no_cumplen_dict = {week: None for week in all_weeks}
+    
+    for row in promedio_cumplen_week.iter_rows(named=True):
+        cumplen_dict[row['yearweek']] = row['promedio']
+    
+    for row in promedio_no_cumplen_week.iter_rows(named=True):
+        no_cumplen_dict[row['yearweek']] = row['promedio']
+    
+    fig = go.Figure()
+    
+    # Línea de casos que cumplen Criterio 2
+    fig.add_trace(go.Scatter(
+        x=all_weeks,
+        y=[cumplen_dict[w] for w in all_weeks],
+        mode='lines+markers',
+        name='Cumple Criterio 2',
+        line=dict(color=color_criterio, width=3),
+        marker=dict(size=8),
+        hovertemplate='Semana: %{x}<br>Promedio: %{y:.2f}<extra></extra>'
+    ))
+    
+    # Línea de casos que NO cumplen Criterio 2
+    fig.add_trace(go.Scatter(
+        x=all_weeks,
+        y=[no_cumplen_dict[w] for w in all_weeks],
+        mode='lines+markers',
+        name='No Cumple Criterio 2',
+        line=dict(color='#95a5a6', width=3),
+        marker=dict(size=8),
+        hovertemplate='Semana: %{x}<br>Promedio: %{y:.2f}<extra></extra>'
+    ))
+    
+    # Línea de referencia en y=2 (umbral del criterio)
+    fig.add_hline(
+        y=2, 
+        line_dash="dash", 
+        line_color="rgba(0,0,0,0.3)",
+        annotation_text="Umbral: >1 síntoma",
+        annotation_position="right"
+    )
+    
+    fig.update_layout(
+        title='Evolución del Promedio de Síntomas Recurrentes por Semana Epidemiológica',
+        xaxis_title='Semana Epidemiológica',
+        yaxis_title='Promedio de Síntomas Recurrentes',
+        template='plotly_white',
+        height=500,
+        hovermode='x unified',
+        xaxis=dict(
+            type='category',
+            tickangle=-45
+        ),
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=-0.35,
+            xanchor='center',
+            x=0.5
+        )
     )
     
     return fig
@@ -877,7 +1069,7 @@ def plot_clusters_heatmap_by_diagnosis_week(df: pl.DataFrame) -> go.Figure:
     return fig
 
 
-def plot_criterio_barplot(df: pl.DataFrame, criterio_num: int, titulo: str | None = None) -> go.Figure:
+def plot_criterio_barplot(df: pl.DataFrame, criterio_num: int, titulo: str | None = None, color_criterio: str | None = None) -> go.Figure:
     """
     Barplot por semana epidemiológica mostrando cumple vs no cumple para un criterio
     
@@ -885,11 +1077,16 @@ def plot_criterio_barplot(df: pl.DataFrame, criterio_num: int, titulo: str | Non
         df: DataFrame con columna de criterio y yearweek
         criterio_num: Número del criterio (1, 2, 3, 4)
         titulo: Título personalizado (opcional)
+        color_criterio: Color específico del criterio (opcional, por defecto verde)
     
     Returns:
         Figura con barplot apilado por semana
     """
     col_name = f'criterio_{criterio_num}' if criterio_num > 1 else 'longCOVID'
+    
+    # Color por defecto si no se proporciona
+    if color_criterio is None:
+        color_criterio = '#27ae60'
     
     # Obtener todas las semanas únicas
     all_weeks = sorted(df.select('yearweek').unique().to_series().to_list())
@@ -923,7 +1120,7 @@ def plot_criterio_barplot(df: pl.DataFrame, criterio_num: int, titulo: str | Non
         x=all_weeks,
         y=[cumple_dict[w] for w in all_weeks],
         name='Cumple criterio',
-        marker_color='#27ae60'
+        marker_color=color_criterio
     ))
     
     fig.add_trace(go.Bar(
