@@ -1069,6 +1069,147 @@ def plot_clusters_heatmap_by_diagnosis_week(df: pl.DataFrame) -> go.Figure:
     return fig
 
 
+def plot_criterio3_clusters_comparison(df: pl.DataFrame, color_criterio: str = '#f39c12') -> go.Figure:
+    """
+    Comparación de clusters individuales entre casos que cumplen vs no cumplen Criterio 3
+    Barplot horizontal mostrando cada cluster con separación por sexo
+    
+    Args:
+        df: DataFrame con columnas de clusters, criterio_3 y sexo
+        color_criterio: Color del criterio para casos que cumplen
+    
+    Returns:
+        Figura con barplot horizontal comparativo
+    """
+    # Definición de clusters con sus nombres
+    clusters_info = [
+        ('cluster_via_aerea_bi', 'AIRWAYS', ['Nasal congestion', 'Cough', 'Phlegm', 'Sore throat']),
+        ('cluster_cognitivo_bi', 'COGNITIVE', ['Depression or anxiety', 'Memory impairment', 'Headache', 'Drowsiness']),
+        ('cluster_gastrointestinal_bi', 'GASTRO-INTESTINAL', ['Abdominal pain', 'Nausea', 'Chiken legs (edema)', 'Diarrhea', 'Weight loss', 'Change in appetite']),
+        ('cluster_muscular_bi', 'MUSCULAR', ['Muscle pain', 'Joint pain', 'Legs feel heavy']),
+        ('cluster_respiratorio_bi', 'RESPIRATORY', ['Shortness of breath', 'Fatigue', 'Chest pain', 'Breathing difficulty']),
+        ('cluster_olfato_gusto_bi', 'SMELL/TASTE', ['Anosmia', 'Change in smell', 'Ageusia', 'Change in taste']),
+    ]
+    
+    # Filtrar casos con datos completos en criterio_3 (sin nulls en recuperado_3m)
+    df_sin_nulls = df.filter(~pl.col('recuperado_3m').is_null())
+    
+    # Crear datos para el gráfico
+    plot_data = []
+    
+    for col, nombre, sintomas in clusters_info:
+        # Casos que cumplen Criterio 3
+        casos_cumple = df_sin_nulls.filter(pl.col('criterio_3') == 1)
+        
+        # Casos femeninos que cumplen y tienen el cluster
+        casos_f = casos_cumple.filter(
+            (pl.col(col) == 1) & (pl.col('sexo') == 2)
+        ).height
+        
+        # Casos masculinos que cumplen y tienen el cluster
+        casos_m = casos_cumple.filter(
+            (pl.col(col) == 1) & (pl.col('sexo') == 1)
+        ).height
+        
+        # Controles (no cumplen Criterio 3)
+        controles = df_sin_nulls.filter(pl.col('criterio_3') == 0)
+        
+        # Controles femeninos con el cluster
+        controles_f = controles.filter(
+            (pl.col(col) == 1) & (pl.col('sexo') == 2)
+        ).height
+        
+        # Controles masculinos con el cluster
+        controles_m = controles.filter(
+            (pl.col(col) == 1) & (pl.col('sexo') == 1)
+        ).height
+        
+        plot_data.append({
+            'cluster': nombre,
+            'sintomas': '<br>'.join(sintomas),
+            'casos_f': casos_f,
+            'casos_m': casos_m,
+            'controles_f': controles_f,
+            'controles_m': controles_m
+        })
+    
+    # Crear figura
+    fig = go.Figure()
+    
+    # Orden inverso para que aparezcan de arriba hacia abajo como en la imagen
+    clusters_names = [d['cluster'] for d in plot_data]
+    
+    # Barras para casos femeninos (morado)
+    fig.add_trace(go.Bar(
+        name='Cases Female',
+        y=clusters_names,
+        x=[d['casos_f'] for d in plot_data],
+        orientation='h',
+        marker=dict(color='#8B7AB8'),
+        text=[d['casos_f'] for d in plot_data],
+        textposition='inside',
+        hovertemplate='%{y}<br>Cases Female: %{x}<extra></extra>'
+    ))
+    
+    # Barras para casos masculinos (verde claro)
+    fig.add_trace(go.Bar(
+        name='Cases Male',
+        y=clusters_names,
+        x=[d['casos_m'] for d in plot_data],
+        orientation='h',
+        marker=dict(color='#90C695'),
+        text=[d['casos_m'] for d in plot_data],
+        textposition='inside',
+        hovertemplate='%{y}<br>Cases Male: %{x}<extra></extra>'
+    ))
+    
+    # Barras para controles femeninos (azul/morado más claro)
+    fig.add_trace(go.Bar(
+        name='Controls Female',
+        y=clusters_names,
+        x=[d['controles_f'] for d in plot_data],
+        orientation='h',
+        marker=dict(color='#B8B0D4'),
+        text=[d['controles_f'] for d in plot_data],
+        textposition='inside',
+        hovertemplate='%{y}<br>Controls Female: %{x}<extra></extra>'
+    ))
+    
+    # Barras para controles masculinos (verde más claro)
+    fig.add_trace(go.Bar(
+        name='Controls Male',
+        y=clusters_names,
+        x=[d['controles_m'] for d in plot_data],
+        orientation='h',
+        marker=dict(color='#C8D9CA'),
+        text=[d['controles_m'] for d in plot_data],
+        textposition='inside',
+        hovertemplate='%{y}<br>Controls Male: %{x}<extra></extra>'
+    ))
+    
+    fig.update_layout(
+        title='Criterio 3: Clusters por Casos vs Controles (separado por Sexo)',
+        xaxis_title='Número de Personas',
+        yaxis_title='Cluster/Phenotype',
+        barmode='stack',
+        template='plotly_white',
+        height=600,
+        legend=dict(
+            orientation='v',
+            yanchor='top',
+            y=1.0,
+            xanchor='right',
+            x=1.15
+        ),
+        yaxis=dict(
+            categoryorder='array',
+            categoryarray=clusters_names[::-1]  # Invertir orden
+        )
+    )
+    
+    return fig
+
+
 def plot_criterio_barplot(df: pl.DataFrame, criterio_num: int, titulo: str | None = None, color_criterio: str | None = None) -> go.Figure:
     """
     Barplot por semana epidemiológica mostrando cumple vs no cumple para un criterio
@@ -1147,3 +1288,1313 @@ def plot_criterio_barplot(df: pl.DataFrame, criterio_num: int, titulo: str | Non
     )
     
     return fig
+
+
+def plot_criterios_null_impact(null_analysis: dict, colores_criterios: dict) -> go.Figure:
+    """
+    Visualiza el impacto de los valores NULL en cada criterio.
+    Compara casos totales vs casos con datos completos.
+    
+    Args:
+        null_analysis: Dict con análisis de NULLs por criterio (resultado de analyze_criterios_null_impact)
+        colores_criterios: Dict con los colores para cada criterio
+    
+    Returns:
+        Figura de Plotly con comparación de NULLs
+    """
+    criterios = ['criterio_1', 'criterio_2', 'criterio_3', 'criterio_4']
+    criterios_labels = ['Criterio 1', 'Criterio 2', 'Criterio 3', 'Criterio 4']
+    
+    total_casos = [null_analysis[c]['total_casos'] for c in criterios]
+    casos_completos = [null_analysis[c]['casos_con_datos_completos'] for c in criterios]
+    casos_perdidos = [null_analysis[c]['casos_perdidos'] for c in criterios]
+    
+    fig = go.Figure()
+    
+    # Barras de casos con datos completos
+    fig.add_trace(go.Bar(
+        name='Casos con datos completos',
+        x=criterios_labels,
+        y=casos_completos,
+        marker=dict(
+            color=[colores_criterios[c] for c in criterios],
+            line=dict(width=2, color='white')
+        ),
+        text=casos_completos,
+        textposition='inside',
+        textfont=dict(color='white', size=14),
+        hovertemplate='%{x}<br>Casos con datos completos: %{y}<extra></extra>'
+    ))
+    
+    # Barras de casos perdidos por NULLs
+    fig.add_trace(go.Bar(
+        name='Casos perdidos (con NULLs)',
+        x=criterios_labels,
+        y=casos_perdidos,
+        marker=dict(
+            color='#e74c3c',
+            opacity=0.6,
+            line=dict(width=2, color='white')
+        ),
+        text=[f'{cp} ({null_analysis[criterios[i]]["porcentaje_perdido"]:.1f}%)' if cp > 0 else ''
+              for i, cp in enumerate(casos_perdidos)],
+        textposition='inside',
+        textfont=dict(color='white', size=12),
+        hovertemplate='%{x}<br>Casos perdidos: %{y} (%{text})<extra></extra>'
+    ))
+    
+    fig.update_layout(
+        title='Impacto de Valores NULL en los Criterios de Long COVID',
+        xaxis_title='Criterio',
+        yaxis_title='Número de Casos',
+        template='plotly_white',
+        height=600,
+        barmode='stack',
+        legend=dict(
+            orientation='h',
+            yanchor='top',
+            y=-0.15,
+            xanchor='center',
+            x=0.5
+        ),
+        # Añadir anotación con total
+        annotations=[
+            dict(
+                x=i,
+                y=total_casos[i] + 20,
+                text=f'<b>Total: {total_casos[i]}</b>',
+                showarrow=False,
+                font=dict(size=12, color='#2c3e50')
+            )
+            for i in range(len(criterios_labels))
+        ]
+    )
+    
+    return fig
+
+
+def plot_cases_by_week_by_sex(df: pl.DataFrame) -> go.Figure:
+    """
+    Barplot de casos por semana epidemiológica coloreado por sexo
+    
+    Args:
+        df: DataFrame con columnas yearweek y sexo
+    
+    Returns:
+        Figura con barplot apilado por sexo
+    """
+    # Obtener todas las semanas únicas
+    all_weeks = sorted(df.select('yearweek').unique().to_series().to_list())
+    
+    # Agrupar por semana y sexo
+    df_week = df.group_by(['yearweek', 'sexo']).agg(
+        pl.len().alias('n')
+    ).sort('yearweek')
+    
+    # Crear diccionarios para cada sexo
+    femenino_dict = {week: 0 for week in all_weeks}
+    masculino_dict = {week: 0 for week in all_weeks}
+    
+    for row in df_week.iter_rows(named=True):
+        sexo_val = row['sexo']
+        if sexo_val == 1:  # Femenino
+            femenino_dict[row['yearweek']] = row['n']
+        elif sexo_val == 2:  # Masculino
+            masculino_dict[row['yearweek']] = row['n']
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Bar(
+        x=all_weeks,
+        y=[femenino_dict[w] for w in all_weeks],
+        name='Femenino',
+        marker_color='#e74c3c'  # Rojo
+    ))
+    
+    fig.add_trace(go.Bar(
+        x=all_weeks,
+        y=[masculino_dict[w] for w in all_weeks],
+        name='Masculino',
+        marker_color='#3498db'  # Azul
+    ))
+    
+    fig.update_layout(
+        title='Casos por Semana Epidemiológica - Distribución por Sexo',
+        xaxis_title='Semana Epidemiológica',
+        yaxis_title='Número de Casos',
+        barmode='stack',
+        template='plotly_white',
+        height=500,
+        xaxis=dict(
+            type='category',
+            tickangle=-45
+        )
+    )
+    
+    return fig
+
+
+def plot_cases_by_week_by_age_group(df: pl.DataFrame) -> go.Figure:
+    """
+    Barplot de casos por semana epidemiológica coloreado por grupo etario
+    
+    Args:
+        df: DataFrame con columnas yearweek y edad_entrevistado
+    
+    Returns:
+        Figura con barplot apilado por grupos de edad
+    """
+    # Obtener todas las semanas únicas
+    all_weeks = sorted(df.select('yearweek').unique().to_series().to_list())
+    
+    # Crear grupos etarios
+    df_cat = df.with_columns(
+        pl.when(pl.col('edad_entrevistado') < 30)
+        .then(pl.lit('<30'))
+        .when((pl.col('edad_entrevistado') >= 30) & (pl.col('edad_entrevistado') < 45))
+        .then(pl.lit('30-44'))
+        .when((pl.col('edad_entrevistado') >= 45) & (pl.col('edad_entrevistado') < 60))
+        .then(pl.lit('45-59'))
+        .otherwise(pl.lit('≥60'))
+        .alias('grupo_edad')
+    )
+    
+    # Agrupar por semana y grupo
+    df_week = df_cat.group_by(['yearweek', 'grupo_edad']).agg(
+        pl.len().alias('n')
+    ).sort('yearweek')
+    
+    # Colores por grupo
+    grupos = ['<30', '30-44', '45-59', '≥60']
+    colores = ['#3498db', '#2ecc71', '#f39c12', '#e74c3c']
+    
+    # Crear diccionarios para cada grupo
+    grupos_dict = {grupo: {week: 0 for week in all_weeks} for grupo in grupos}
+    
+    for row in df_week.iter_rows(named=True):
+        grupo = row['grupo_edad']
+        if grupo in grupos_dict:
+            grupos_dict[grupo][row['yearweek']] = row['n']
+    
+    fig = go.Figure()
+    
+    for grupo, color in zip(grupos, colores):
+        fig.add_trace(go.Bar(
+            x=all_weeks,
+            y=[grupos_dict[grupo][w] for w in all_weeks],
+            name=grupo,
+            marker_color=color
+        ))
+    
+    fig.update_layout(
+        title='Casos por Semana Epidemiológica - Distribución por Grupo Etario',
+        xaxis_title='Semana Epidemiológica',
+        yaxis_title='Número de Casos',
+        barmode='stack',
+        template='plotly_white',
+        height=500,
+        xaxis=dict(
+            type='category',
+            tickangle=-45
+        )
+    )
+    
+    return fig
+
+
+def plot_cases_by_week_by_secuelas(df: pl.DataFrame) -> go.Figure:
+    """
+    Barplot de casos por semana epidemiológica coloreado por presencia de secuelas
+    
+    Args:
+        df: DataFrame con columnas yearweek y sec_count
+    
+    Returns:
+        Figura con barplot apilado por secuelas
+    """
+    # Obtener todas las semanas únicas
+    all_weeks = sorted(df.select('yearweek').unique().to_series().to_list())
+    
+    # Crear categoría binaria
+    df_cat = df.with_columns(
+        pl.when(pl.col('sec_count') >= 1)
+        .then(pl.lit('Con secuelas'))
+        .otherwise(pl.lit('Sin secuelas'))
+        .alias('tiene_secuelas')
+    )
+    
+    # Agrupar
+    df_week = df_cat.group_by(['yearweek', 'tiene_secuelas']).agg(
+        pl.len().alias('n')
+    ).sort('yearweek')
+    
+    # Crear diccionarios
+    con_dict = {week: 0 for week in all_weeks}
+    sin_dict = {week: 0 for week in all_weeks}
+    
+    for row in df_week.iter_rows(named=True):
+        if row['tiene_secuelas'] == 'Con secuelas':
+            con_dict[row['yearweek']] = row['n']
+        else:
+            sin_dict[row['yearweek']] = row['n']
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Bar(
+        x=all_weeks,
+        y=[con_dict[w] for w in all_weeks],
+        name='Con secuelas',
+        marker_color='#e74c3c'  # Rojo
+    ))
+    
+    fig.add_trace(go.Bar(
+        x=all_weeks,
+        y=[sin_dict[w] for w in all_weeks],
+        name='Sin secuelas',
+        marker_color='#2ecc71'  # Verde
+    ))
+    
+    fig.update_layout(
+        title='Casos por Semana Epidemiológica - Presencia de Secuelas',
+        xaxis_title='Semana Epidemiológica',
+        yaxis_title='Número de Casos',
+        barmode='stack',
+        template='plotly_white',
+        height=500,
+        xaxis=dict(
+            type='category',
+            tickangle=-45
+        )
+    )
+    
+    return fig
+
+
+def plot_cases_by_week_by_nueva_condicion(df: pl.DataFrame) -> go.Figure:
+    """
+    Barplot de casos por semana epidemiológica coloreado por nueva condición
+    
+    Args:
+        df: DataFrame con columnas yearweek y conteo_nueva_condicion
+    
+    Returns:
+        Figura con barplot apilado por nueva condición
+    """
+    # Obtener todas las semanas únicas
+    all_weeks = sorted(df.select('yearweek').unique().to_series().to_list())
+    
+    # Crear categoría binaria
+    df_cat = df.with_columns(
+        pl.when(pl.col('conteo_nueva_condicion') >= 1)
+        .then(pl.lit('Con nueva condición'))
+        .otherwise(pl.lit('Sin nueva condición'))
+        .alias('tiene_nueva_condicion')
+    )
+    
+    # Agrupar
+    df_week = df_cat.group_by(['yearweek', 'tiene_nueva_condicion']).agg(
+        pl.len().alias('n')
+    ).sort('yearweek')
+    
+    # Crear diccionarios
+    con_dict = {week: 0 for week in all_weeks}
+    sin_dict = {week: 0 for week in all_weeks}
+    
+    for row in df_week.iter_rows(named=True):
+        if row['tiene_nueva_condicion'] == 'Con nueva condición':
+            con_dict[row['yearweek']] = row['n']
+        else:
+            sin_dict[row['yearweek']] = row['n']
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Bar(
+        x=all_weeks,
+        y=[con_dict[w] for w in all_weeks],
+        name='Con nueva condición',
+        marker_color='#9b59b6'  # Morado
+    ))
+    
+    fig.add_trace(go.Bar(
+        x=all_weeks,
+        y=[sin_dict[w] for w in all_weeks],
+        name='Sin nueva condición',
+        marker_color='#95a5a6'  # Gris
+    ))
+    
+    fig.update_layout(
+        title='Casos por Semana Epidemiológica - Nueva Condición Médica',
+        xaxis_title='Semana Epidemiológica',
+        yaxis_title='Número de Casos',
+        barmode='stack',
+        template='plotly_white',
+        height=500,
+        xaxis=dict(
+            type='category',
+            tickangle=-45
+        )
+    )
+    
+    return fig
+
+
+def plot_cases_by_week_by_sintomas_recurrentes(df: pl.DataFrame) -> go.Figure:
+    """
+    Barplot de casos por semana epidemiológica coloreado por síntomas recurrentes
+    
+    Args:
+        df: DataFrame con columnas yearweek y sintoma_recurrente_count
+    
+    Returns:
+        Figura con barplot apilado por nivel de síntomas
+    """
+    # Obtener todas las semanas únicas
+    all_weeks = sorted(df.select('yearweek').unique().to_series().to_list())
+    
+    # Crear categorías de síntomas
+    df_cat = df.with_columns(
+        pl.when(pl.col('sintoma_recurrente_count') == 0)
+        .then(pl.lit('0 síntomas'))
+        .when(pl.col('sintoma_recurrente_count') == 1)
+        .then(pl.lit('1 síntoma'))
+        .when(pl.col('sintoma_recurrente_count') == 2)
+        .then(pl.lit('2 síntomas'))
+        .when(pl.col('sintoma_recurrente_count') == 3)
+        .then(pl.lit('3 síntomas'))
+        .otherwise(pl.lit('4+ síntomas'))
+        .alias('categoria_sintomas')
+    )
+    
+    # Agrupar
+    df_week = df_cat.group_by(['yearweek', 'categoria_sintomas']).agg(
+        pl.len().alias('n')
+    ).sort('yearweek')
+    
+    # Categorías y colores
+    categorias = ['0 síntomas', '1 síntoma', '2 síntomas', '3 síntomas', '4+ síntomas']
+    colores = ['#95a5a6', '#3498db', '#f39c12', '#e67e22', '#e74c3c']
+    
+    # Crear diccionarios
+    cat_dict = {cat: {week: 0 for week in all_weeks} for cat in categorias}
+    
+    for row in df_week.iter_rows(named=True):
+        cat = row['categoria_sintomas']
+        if cat in cat_dict:
+            cat_dict[cat][row['yearweek']] = row['n']
+    
+    fig = go.Figure()
+    
+    for cat, color in zip(categorias, colores):
+        fig.add_trace(go.Bar(
+            x=all_weeks,
+            y=[cat_dict[cat][w] for w in all_weeks],
+            name=cat,
+            marker_color=color
+        ))
+    
+    fig.update_layout(
+        title='Casos por Semana Epidemiológica - Síntomas Recurrentes',
+        xaxis_title='Semana Epidemiológica',
+        yaxis_title='Número de Casos',
+        barmode='stack',
+        template='plotly_white',
+        height=500,
+        xaxis=dict(
+            type='category',
+            tickangle=-45
+        )
+    )
+    
+    return fig
+
+
+def plot_cases_by_week_by_criterio_3_sin_nulls(df: pl.DataFrame) -> go.Figure:
+    """
+    Barplot de casos por semana epidemiológica para Criterio 3, omitiendo nulls en recuperado_3m
+    
+    Args:
+        df: DataFrame con columnas yearweek, criterio_3 y recuperado_3m
+    
+    Returns:
+        Figura con barplot apilado por criterio 3 (sin casos con nulls)
+    """
+    # Filtrar nulls en recuperado_3m (variable crítica para criterio_3)
+    df_sin_nulls = df.filter(~pl.col('recuperado_3m').is_null())
+    
+    # Obtener todas las semanas únicas
+    all_weeks = sorted(df_sin_nulls.select('yearweek').unique().to_series().to_list())
+    
+    # Agrupar por semana y criterio_3
+    df_week = df_sin_nulls.group_by(['yearweek', 'criterio_3']).agg(
+        pl.len().alias('n')
+    ).sort('yearweek')
+    
+    # Diccionarios para cada categoría
+    cumple_dict = {week: 0 for week in all_weeks}
+    no_cumple_dict = {week: 0 for week in all_weeks}
+    
+    for row in df_week.iter_rows(named=True):
+        if row['criterio_3'] == 1:
+            cumple_dict[row['yearweek']] = row['n']
+        elif row['criterio_3'] == 0:
+            no_cumple_dict[row['yearweek']] = row['n']
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Bar(
+        x=all_weeks,
+        y=[cumple_dict[w] for w in all_weeks],
+        name='Cumple Criterio 3',
+        marker_color='#f39c12'  # Naranja (color criterio 3)
+    ))
+    
+    fig.add_trace(go.Bar(
+        x=all_weeks,
+        y=[no_cumple_dict[w] for w in all_weeks],
+        name='No cumple',
+        marker_color='#95a5a6'  # Gris
+    ))
+    
+    fig.update_layout(
+        title='Casos por Semana Epidemiológica - Criterio 3 (sin casos con nulls)',
+        xaxis_title='Semana Epidemiológica',
+        yaxis_title='Número de Casos',
+        barmode='stack',
+        template='plotly_white',
+        height=500,
+        xaxis=dict(
+            type='category',
+            tickangle=-45
+        )
+    )
+    
+    return fig
+
+
+def create_table1_stratified(df: pl.DataFrame, stratify_by: str = 'longCOVID') -> go.Figure:
+    """
+    Crea Tabla 1 descriptiva estratificada por variable (ej. Long COVID)
+    Similar al formato de tablas clínicas con estadísticas por grupo.
+    
+    Args:
+        df: DataFrame con todas las variables
+        stratify_by: Variable de estratificación (default: 'longCOVID')
+    
+    Returns:
+        Figura de Plotly con tabla
+    """
+    from scipy import stats
+    
+    # Definir la estructura de la tabla
+    table_structure = {
+        'Demographic characteristics': [
+            {'var': 'sexo', 'type': 'categorical', 'label': 'Sex', 
+             'categories': {1: 'Female', 2: 'Male'}},
+            {'var': 'edad_entrevistado', 'type': 'age_groups', 'label': 'Age group',
+             'groups': [(0, 30, '< 30'), (30, 45, '30-44'), (45, 60, '45-59'), (60, 100, '≥ 60')]},
+            {'var': 'Nacionalidad', 'type': 'categorical_str', 'label': 'Nationality'},
+            {'var': 'Región', 'type': 'categorical_str', 'label': 'Region'}
+        ],
+        'Clinical characteristics (acute COVID)': [
+            {'var': 'Hospitalización', 'type': 'binary', 'label': 'Hospitalization', 
+             'yes_value': 1},
+            {'var': 'Total_Sintomas', 'type': 'continuous', 'label': 'Number of acute symptoms'},
+            {'var': 'Total_Cond_pre', 'type': 'continuous', 'label': 'Pre-existing conditions'}
+        ],
+        'Lifestyle': [
+            {'var': 'Tipo_Salud', 'type': 'categorical', 'label': 'Health insurance type',
+             'categories': {1: 'Type 1', 2: 'Type 2'}},
+            {'var': 'Más.de.100.Cigarros', 'type': 'binary', 'label': '>100 cigarettes lifetime',
+             'yes_value': 1}
+        ],
+        'Biological markers': [
+            {'var': 'Grupo.Sanguíneo', 'type': 'categorical_str', 'label': 'Blood group'},
+            {'var': 'Grupo.Rh', 'type': 'categorical_str', 'label': 'Rh group'}
+        ],
+        'Ancestry proportions': [
+            {'var': 'EUR', 'type': 'continuous', 'label': 'European ancestry'},
+            {'var': 'AFR', 'type': 'continuous', 'label': 'African ancestry'},
+            {'var': 'EAS', 'type': 'continuous', 'label': 'East Asian ancestry'},
+            {'var': 'AYM', 'type': 'continuous', 'label': 'Aymara ancestry'},
+            {'var': 'MAP', 'type': 'continuous', 'label': 'Mapuche ancestry'}
+        ],
+        'Long COVID characteristics': [
+            {'var': 'problemas_3m', 'type': 'binary', 'label': 'Problems at 3 months', 
+             'yes_value': 1},
+            {'var': 'ayuda_3m', 'type': 'binary', 'label': 'Need for assistance', 
+             'yes_value': 1}
+        ]
+    }
+    
+    # Filtrar datos por estratificación
+    df_no_lc = df.filter(pl.col(stratify_by) == 0)
+    df_lc = df.filter(pl.col(stratify_by) == 1)
+    
+    n_no_lc = df_no_lc.height
+    n_lc = df_lc.height
+    
+    # Construir datos para la tabla
+    variables = []
+    no_lc_vals = []
+    lc_vals = []
+    pvalues = []
+    
+    for section, var_list in table_structure.items():
+        # Fila de encabezado de sección
+        variables.append(f'<b>{section}</b>')
+        no_lc_vals.append('')
+        lc_vals.append('')
+        pvalues.append('')
+        
+        for var_info in var_list:
+            var_name = var_info['var']
+            
+            # Verificar si la variable existe
+            if var_name not in df.columns:
+                continue
+                
+            var_type = var_info['type']
+            label = var_info['label']
+            
+            if var_type == 'categorical':
+                categories = var_info['categories']
+                for cat_val, cat_label in categories.items():
+                    n_no_lc_cat = df_no_lc.filter(pl.col(var_name) == cat_val).height
+                    n_lc_cat = df_lc.filter(pl.col(var_name) == cat_val).height
+                    
+                    pct_no_lc = (n_no_lc_cat / n_no_lc * 100) if n_no_lc > 0 else 0
+                    pct_lc = (n_lc_cat / n_lc * 100) if n_lc > 0 else 0
+                    
+                    contingency = [[n_no_lc_cat, n_lc_cat], 
+                                   [n_no_lc - n_no_lc_cat, n_lc - n_lc_cat]]
+                    try:
+                        chi2, pvalue, dof, expected = stats.chi2_contingency(contingency)
+                        p_str = f'<0.001' if float(pvalue) < 0.001 else f'{float(pvalue):.3f}'
+                    except:
+                        p_str = '-'
+                    
+                    variables.append(f'  {label}: {cat_label}')
+                    no_lc_vals.append(f'{n_no_lc_cat} ({pct_no_lc:.1f}%)')
+                    lc_vals.append(f'{n_lc_cat} ({pct_lc:.1f}%)')
+                    pvalues.append(p_str)
+            
+            elif var_type == 'categorical_str':
+                # Para categorías de strings, obtener los valores únicos
+                unique_values = sorted(df.select(var_name).unique().to_series().drop_nulls().to_list())
+                
+                # Si hay muchas categorías (>10), mostrar solo las más comunes
+                if len(unique_values) > 10:
+                    # Contar frecuencias y obtener top 5
+                    freq_no_lc = df_no_lc.group_by(var_name).count().sort('count', descending=True).head(5)
+                    freq_lc = df_lc.group_by(var_name).count().sort('count', descending=True).head(5)
+                    unique_values = sorted(list(set(freq_no_lc.select(var_name).to_series().to_list() + 
+                                                     freq_lc.select(var_name).to_series().to_list())))
+                    unique_values = unique_values[:10]  # Limitar a 10
+                
+                for cat_val in unique_values:
+                    n_no_lc_cat = df_no_lc.filter(pl.col(var_name) == cat_val).height
+                    n_lc_cat = df_lc.filter(pl.col(var_name) == cat_val).height
+                    
+                    pct_no_lc = (n_no_lc_cat / n_no_lc * 100) if n_no_lc > 0 else 0
+                    pct_lc = (n_lc_cat / n_lc * 100) if n_lc > 0 else 0
+                    
+                    contingency = [[n_no_lc_cat, n_lc_cat], 
+                                   [n_no_lc - n_no_lc_cat, n_lc - n_lc_cat]]
+                    try:
+                        chi2, pvalue, dof, expected = stats.chi2_contingency(contingency)
+                        p_str = f'<0.001' if float(pvalue) < 0.001 else f'{float(pvalue):.3f}'
+                    except:
+                        p_str = '-'
+                    
+                    variables.append(f'  {label}: {cat_val}')
+                    no_lc_vals.append(f'{n_no_lc_cat} ({pct_no_lc:.1f}%)')
+                    lc_vals.append(f'{n_lc_cat} ({pct_lc:.1f}%)')
+                    pvalues.append(p_str)
+            
+            elif var_type == 'age_groups':
+                groups = var_info['groups']
+                for min_age, max_age, group_label in groups:
+                    n_no_lc_cat = df_no_lc.filter(
+                        (pl.col(var_name) >= min_age) & (pl.col(var_name) < max_age)
+                    ).height
+                    n_lc_cat = df_lc.filter(
+                        (pl.col(var_name) >= min_age) & (pl.col(var_name) < max_age)
+                    ).height
+                    
+                    pct_no_lc = (n_no_lc_cat / n_no_lc * 100) if n_no_lc > 0 else 0
+                    pct_lc = (n_lc_cat / n_lc * 100) if n_lc > 0 else 0
+                    
+                    contingency = [[n_no_lc_cat, n_lc_cat], 
+                                   [n_no_lc - n_no_lc_cat, n_lc - n_lc_cat]]
+                    try:
+                        chi2, pvalue, dof, expected = stats.chi2_contingency(contingency)
+                        p_str = f'<0.001' if float(pvalue) < 0.001 else f'{float(pvalue):.3f}'
+                    except:
+                        p_str = '-'
+                    
+                    variables.append(f'  {label}: {group_label}')
+                    no_lc_vals.append(f'{n_no_lc_cat} ({pct_no_lc:.1f}%)')
+                    lc_vals.append(f'{n_lc_cat} ({pct_lc:.1f}%)')
+                    pvalues.append(p_str)
+            
+            elif var_type == 'binary':
+                yes_val = var_info['yes_value']
+                n_no_lc_yes = df_no_lc.filter(pl.col(var_name) == yes_val).height
+                n_lc_yes = df_lc.filter(pl.col(var_name) == yes_val).height
+                
+                pct_no_lc = (n_no_lc_yes / n_no_lc * 100) if n_no_lc > 0 else 0
+                pct_lc = (n_lc_yes / n_lc * 100) if n_lc > 0 else 0
+                
+                contingency = [[n_no_lc_yes, n_lc_yes], 
+                               [n_no_lc - n_no_lc_yes, n_lc - n_lc_yes]]
+                try:
+                    chi2, pvalue, dof, expected = stats.chi2_contingency(contingency)
+                    p_str = f'<0.001' if float(pvalue) < 0.001 else f'{float(pvalue):.3f}'
+                except:
+                    p_str = '-'
+                
+                variables.append(f'  {label}: Yes')
+                no_lc_vals.append(f'{n_no_lc_yes} ({pct_no_lc:.1f}%)')
+                lc_vals.append(f'{n_lc_yes} ({pct_lc:.1f}%)')
+                pvalues.append(p_str)
+            
+            elif var_type == 'continuous':
+                mean_no_lc = df_no_lc.select(pl.col(var_name).mean()).item()
+                std_no_lc = df_no_lc.select(pl.col(var_name).std()).item()
+                mean_lc = df_lc.select(pl.col(var_name).mean()).item()
+                std_lc = df_lc.select(pl.col(var_name).std()).item()
+                
+                try:
+                    vals_no_lc = df_no_lc.select(var_name).to_series().drop_nulls().to_list()
+                    vals_lc = df_lc.select(var_name).to_series().drop_nulls().to_list()
+                    tstat, pvalue = stats.ttest_ind(vals_no_lc, vals_lc)
+                    p_str = f'<0.001' if float(pvalue) < 0.001 else f'{float(pvalue):.3f}'
+                except:
+                    p_str = '-'
+                
+                variables.append(f'  {label}')
+                no_lc_vals.append(f'{mean_no_lc:.2f} ± {std_no_lc:.2f}')
+                lc_vals.append(f'{mean_lc:.2f} ± {std_lc:.2f}')
+                pvalues.append(p_str)
+    
+    # Crear tabla con Plotly
+    fig = go.Figure(data=[go.Table(
+        header=dict(
+            values=[
+                '<b>Variable</b>',
+                f'<b>No Long COVID<br>(n={n_no_lc})</b>',
+                f'<b>Long COVID<br>(n={n_lc})</b>',
+                '<b>P-value</b>'
+            ],
+            fill_color='#2c3e50',
+            align='left',
+            font=dict(color='white', size=13),
+            height=40
+        ),
+        cells=dict(
+            values=[variables, no_lc_vals, lc_vals, pvalues],
+            fill_color=[['#ecf0f1' if '<b>' in v else '#ffffff' for v in variables]],
+            align=['left', 'center', 'center', 'center'],
+            font=dict(size=12),
+            height=30
+        )
+    )])
+    
+    fig.update_layout(
+        title='Table 1. Characteristics Stratified by Long COVID Status',
+        template='plotly_white',
+        height=2000,
+        width=1200,
+        margin=dict(l=20, r=20, t=60, b=20)
+    )
+    
+    return fig
+
+
+    """
+    Crea Tabla 1 descriptiva estratificada por variable (ej. Long COVID)
+    Similar al formato de tablas clínicas con estadísticas por grupo.
+    
+    Args:
+        df: DataFrame con todas las variables
+        stratify_by: Variable de estratificación (default: 'longCOVID')
+    
+    Returns:
+        Figura de Plotly con tabla HTML estilizada
+    """
+    from scipy import stats
+    
+    # Definir la estructura de la tabla
+    table_structure = {
+        'Demographic characteristics': [
+            {'var': 'sexo', 'type': 'categorical', 'label': 'Sex', 
+             'categories': {1: 'Female', 2: 'Male'}},
+            {'var': 'edad_entrevistado', 'type': 'age_groups', 'label': 'Age group',
+             'groups': [(0, 45, '< 45'), (45, 100, '≥ 45')]}
+        ],
+        'Clinical characteristics (acute COVID)': [
+            {'var': 'Hospitalización', 'type': 'binary', 'label': 'Hospitalization', 
+             'yes_value': 1},
+            {'var': 'Total_Sintomas', 'type': 'continuous', 'label': 'Number of acute symptoms'}
+        ],
+        'Vaccination status': [
+            {'var': 'inmune_3m', 'type': 'binary', 'label': 'Vaccinated', 
+             'yes_value': 1}
+        ],
+        'Long COVID characteristics': [
+            {'var': 'sintoma_recurrente_count', 'type': 'categorical_num', 'label': 'Number of persistent symptoms',
+             'categories': {0: '0', 1: '1', 2: '2', 3: '≥3'}},
+            {'var': 'problemas_3m', 'type': 'binary', 'label': 'Problems at 3 months', 
+             'yes_value': 1},
+            {'var': 'ayuda_3m', 'type': 'binary', 'label': 'Need for assistance', 
+             'yes_value': 1}
+        ],
+        'Symptom clusters': [
+            {'var': 'cluster_cognitivo_bi', 'type': 'binary', 'label': 'Cognitive', 
+             'yes_value': 1},
+            {'var': 'cluster_respiratorio_bi', 'type': 'binary', 'label': 'Respiratory', 
+             'yes_value': 1},
+            {'var': 'cluster_gastrointestinal_bi', 'type': 'binary', 'label': 'Gastrointestinal', 
+             'yes_value': 1},
+            {'var': 'cluster_muscular_bi', 'type': 'binary', 'label': 'Muscular', 
+             'yes_value': 1},
+            {'var': 'cluster_olfato_gusto_bi', 'type': 'binary', 'label': 'Olfactory/gustatory', 
+             'yes_value': 1},
+            {'var': 'cluster_via_aerea_bi', 'type': 'binary', 'label': 'Upper airway', 
+             'yes_value': 1}
+        ]
+    }
+    
+    # Filtrar datos por estratificación
+    df_no_lc = df.filter(pl.col(stratify_by) == 0)
+    df_lc = df.filter(pl.col(stratify_by) == 1)
+    
+    n_no_lc = df_no_lc.height
+    n_lc = df_lc.height
+    
+    # Construir filas de la tabla
+    rows = []
+    
+    for section, variables in table_structure.items():
+        # Fila de encabezado de sección
+        rows.append({
+            'variable': f'<b>{section}</b>',
+            'no_lc': '',
+            'lc': '',
+            'pvalue': '',
+            'is_header': True
+        })
+        
+        for var_info in variables:
+            var_name = var_info['var']
+            
+            # Verificar si la variable existe
+            if var_name not in df.columns:
+                continue
+                
+            var_type = var_info['type']
+            label = var_info['label']
+            
+            if var_type == 'categorical':
+                categories = var_info['categories']
+                for cat_val, cat_label in categories.items():
+                    # Contar en cada grupo
+                    n_no_lc_cat = df_no_lc.filter(pl.col(var_name) == cat_val).height
+                    n_lc_cat = df_lc.filter(pl.col(var_name) == cat_val).height
+                    
+                    pct_no_lc = (n_no_lc_cat / n_no_lc * 100) if n_no_lc > 0 else 0
+                    pct_lc = (n_lc_cat / n_lc * 100) if n_lc > 0 else 0
+                    
+                    # Chi-square test
+                    contingency = [[n_no_lc_cat, n_lc_cat], 
+                                   [n_no_lc - n_no_lc_cat, n_lc - n_lc_cat]]
+                    try:
+                        chi2, pvalue, dof, expected = stats.chi2_contingency(contingency)
+                        p_str = f'<0.001' if float(pvalue) < 0.001 else f'{float(pvalue):.3f}'
+                    except:
+                        p_str = '-'
+                    
+                    rows.append({
+                        'variable': f'{label}: {cat_label}',
+                        'no_lc': f'{n_no_lc_cat} ({pct_no_lc:.1f}%)',
+                        'lc': f'{n_lc_cat} ({pct_lc:.1f}%)',
+                        'pvalue': p_str,
+                        'is_header': False
+                    })
+            
+            elif var_type == 'age_groups':
+                groups = var_info['groups']
+                for min_age, max_age, group_label in groups:
+                    n_no_lc_cat = df_no_lc.filter(
+                        (pl.col(var_name) >= min_age) & (pl.col(var_name) < max_age)
+                    ).height
+                    n_lc_cat = df_lc.filter(
+                        (pl.col(var_name) >= min_age) & (pl.col(var_name) < max_age)
+                    ).height
+                    
+                    pct_no_lc = (n_no_lc_cat / n_no_lc * 100) if n_no_lc > 0 else 0
+                    pct_lc = (n_lc_cat / n_lc * 100) if n_lc > 0 else 0
+                    
+                    # Chi-square test
+                    contingency = [[n_no_lc_cat, n_lc_cat], 
+                                   [n_no_lc - n_no_lc_cat, n_lc - n_lc_cat]]
+                    try:
+                        chi2, pvalue, dof, expected = stats.chi2_contingency(contingency)
+                        p_str = f'<0.001' if float(pvalue) < 0.001 else f'{float(pvalue):.3f}'
+                    except:
+                        p_str = '-'
+                    
+                    rows.append({
+                        'variable': f'{label}: {group_label}',
+                        'no_lc': f'{n_no_lc_cat} ({pct_no_lc:.1f}%)',
+                        'lc': f'{n_lc_cat} ({pct_lc:.1f}%)',
+                        'pvalue': p_str,
+                        'is_header': False
+                    })
+            
+            elif var_type == 'binary':
+                yes_val = var_info['yes_value']
+                n_no_lc_yes = df_no_lc.filter(pl.col(var_name) == yes_val).height
+                n_lc_yes = df_lc.filter(pl.col(var_name) == yes_val).height
+                
+                pct_no_lc = (n_no_lc_yes / n_no_lc * 100) if n_no_lc > 0 else 0
+                pct_lc = (n_lc_yes / n_lc * 100) if n_lc > 0 else 0
+                
+                # Chi-square test
+                contingency = [[n_no_lc_yes, n_lc_yes], 
+                               [n_no_lc - n_no_lc_yes, n_lc - n_lc_yes]]
+                try:
+                    chi2, pvalue, dof, expected = stats.chi2_contingency(contingency)
+                    p_str = f'<0.001' if float(pvalue) < 0.001 else f'{float(pvalue):.3f}'
+                except:
+                    p_str = '-'
+                
+                rows.append({
+                    'variable': f'{label}: Yes',
+                    'no_lc': f'{n_no_lc_yes} ({pct_no_lc:.1f}%)',
+                    'lc': f'{n_lc_yes} ({pct_lc:.1f}%)',
+                    'pvalue': p_str,
+                    'is_header': False
+                })
+            
+            elif var_type == 'continuous':
+                # Media ± DE
+                mean_no_lc = df_no_lc.select(pl.col(var_name).mean()).item()
+                std_no_lc = df_no_lc.select(pl.col(var_name).std()).item()
+                mean_lc = df_lc.select(pl.col(var_name).mean()).item()
+                std_lc = df_lc.select(pl.col(var_name).std()).item()
+                
+                # T-test
+                try:
+                    vals_no_lc = df_no_lc.select(var_name).to_series().drop_nulls().to_list()
+                    vals_lc = df_lc.select(var_name).to_series().drop_nulls().to_list()
+                    tstat, pvalue = stats.ttest_ind(vals_no_lc, vals_lc)
+                    p_str = f'<0.001' if float(pvalue) < 0.001 else f'{float(pvalue):.3f}'
+                except:
+                    p_str = '-'
+                
+                rows.append({
+                    'variable': label,
+                    'no_lc': f'{mean_no_lc:.2f} ± {std_no_lc:.2f}',
+                    'lc': f'{mean_lc:.2f} ± {std_lc:.2f}',
+                    'pvalue': p_str,
+                    'is_header': False
+                })
+            
+            elif var_type == 'categorical_num':
+                categories = var_info['categories']
+                for cat_val, cat_label in categories.items():
+                    if cat_val == 3:  # ≥3
+                        n_no_lc_cat = df_no_lc.filter(pl.col(var_name) >= cat_val).height
+                        n_lc_cat = df_lc.filter(pl.col(var_name) >= cat_val).height
+                    else:
+                        n_no_lc_cat = df_no_lc.filter(pl.col(var_name) == cat_val).height
+                        n_lc_cat = df_lc.filter(pl.col(var_name) == cat_val).height
+                    
+                    pct_no_lc = (n_no_lc_cat / n_no_lc * 100) if n_no_lc > 0 else 0
+                    pct_lc = (n_lc_cat / n_lc * 100) if n_lc > 0 else 0
+                    
+                    contingency = [[n_no_lc_cat, n_lc_cat], 
+                                   [n_no_lc - n_no_lc_cat, n_lc - n_lc_cat]]
+                    try:
+                        chi2, pvalue, dof, expected = stats.chi2_contingency(contingency)
+                        p_str = f'<0.001' if float(pvalue) < 0.001 else f'{float(pvalue):.3f}'
+                    except:
+                        p_str = '-'
+                    
+                    rows.append({
+                        'variable': f'{label}: {cat_label}',
+                        'no_lc': f'{n_no_lc_cat} ({pct_no_lc:.1f}%)',
+                        'lc': f'{n_lc_cat} ({pct_lc:.1f}%)',
+                        'pvalue': p_str,
+                        'is_header': False
+                    })
+    
+    # Crear HTML de la tabla
+    html_rows = []
+    html_rows.append(f'''
+    <tr style="background-color: #2c3e50; color: white;">
+        <th style="padding: 12px; text-align: left; border: 1px solid #ddd;"><b>Variable</b></th>
+        <th style="padding: 12px; text-align: center; border: 1px solid #ddd;"><b>No Long COVID (n={n_no_lc})</b></th>
+        <th style="padding: 12px; text-align: center; border: 1px solid #ddd;"><b>Long COVID (n={n_lc})</b></th>
+        <th style="padding: 12px; text-align: center; border: 1px solid #ddd;"><b>P-value</b></th>
+    </tr>
+    ''')
+    
+    for i, row in enumerate(rows):
+        bg_color = '#ecf0f1' if row.get('is_header') else ('#ffffff' if i % 2 == 0 else '#f8f9fa')
+        html_rows.append(f'''
+        <tr style="background-color: {bg_color};">
+            <td style="padding: 8px; border: 1px solid #ddd;">{row['variable']}</td>
+            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">{row['no_lc']}</td>
+            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">{row['lc']}</td>
+            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">{row['pvalue']}</td>
+        </tr>
+        ''')
+    
+    html_table = f'''
+    <div style="overflow-x: auto; font-family: Arial, sans-serif;">
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            {''.join(html_rows)}
+        </table>
+    </div>
+    '''
+    
+    # Crear figura con HTML
+    fig = go.Figure()
+    
+    fig.add_annotation(
+        text=html_table,
+        xref='paper',
+        yref='paper',
+        x=0.5,
+        y=0.5,
+        showarrow=False,
+        font=dict(size=12),
+        align='left',
+        xanchor='center',
+        yanchor='middle'
+    )
+    
+    fig.update_layout(
+        title='Table 1. Characteristics Stratified by Long COVID Status',
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
+        template='plotly_white',
+        height=800,
+        margin=dict(l=20, r=20, t=60, b=20)
+    )
+    
+    return fig
+
+
+def plot_linaje_barplot(df: pl.DataFrame) -> go.Figure:
+    """
+    Barplot de proporción promedio de ancestrías genéticas
+    
+    Args:
+        df: DataFrame con columnas EUR, AFR, EAS, AYM, MAP
+        
+    Returns:
+        Figura de plotly con barplot de ancestrías promedio
+    """
+    # Calcular promedios de ancestría
+    ancestrias = ['EUR', 'AFR', 'EAS', 'AYM', 'MAP']
+    promedios = []
+    
+    for anc in ancestrias:
+        promedio = df[anc].mean()
+        promedios.append(promedio)
+    
+    # Crear DataFrame para gráfico
+    df_ancestrias = pl.DataFrame({
+        'Ancestría': ancestrias,
+        'Proporción_Promedio': promedios
+    })
+    
+    df_pd = df_ancestrias.to_pandas()
+    
+    # Colores por ancestría
+    colores = {
+        'EUR': '#3498db',  # Azul - Europea
+        'AFR': '#e67e22',  # Naranja - Africana
+        'EAS': '#2ecc71',  # Verde - Este Asiática
+        'AYM': '#9b59b6',  # Púrpura - Aymara
+        'MAP': '#e74c3c'   # Rojo - Mapuche
+    }
+    
+    colors_list = [colores[anc] for anc in ancestrias]
+    
+    # Crear barplot
+    fig = go.Figure()
+    
+    fig.add_trace(go.Bar(
+        x=df_pd['Ancestría'],
+        y=df_pd['Proporción_Promedio'],
+        marker=dict(
+            color=colors_list,
+            line=dict(color='#34495e', width=1.5)
+        ),
+        hovertemplate='Ancestría: %{x}<br>Proporción Promedio: %{y:.4f}<extra></extra>'
+    ))
+    
+    fig.update_layout(
+        title='Distribución Promedio de Ancestrías Genéticas',
+        xaxis_title='Ancestría Genética',
+        yaxis_title='Proporción Promedio',
+        template='plotly_white',
+        height=500,
+        font=dict(size=12),
+        margin=dict(l=60, r=40, t=80, b=60)
+    )
+    
+    return fig
+
+
+def plot_hospitalizacion_by_week(df: pl.DataFrame) -> go.Figure:
+    """
+    Gráfico de hospitalización por semana epidemiológica
+    
+    Args:
+        df: DataFrame con columnas 'yearweek' y 'Hospitalización'
+        
+    Returns:
+        Figura de plotly con barplot apilado por semana
+    """
+    # Obtener todas las semanas únicas y ordenarlas
+    all_weeks = sorted(df.select('yearweek').unique().to_series().to_list())
+    
+    # Inicializar diccionarios para cada categoría
+    no_hosp_counts = {week: 0 for week in all_weeks}
+    hosp_counts = {week: 0 for week in all_weeks}
+    
+    # Contar casos por semana y hospitalización
+    for week in all_weeks:
+        week_data = df.filter(pl.col('yearweek') == week)
+        no_hosp_counts[week] = week_data.filter(pl.col('Hospitalización') == 0).height
+        hosp_counts[week] = week_data.filter(pl.col('Hospitalización') == 1).height
+    
+    # Calcular totales
+    total_no_hosp = sum(no_hosp_counts.values())
+    total_hosp = sum(hosp_counts.values())
+    
+    # Crear gráfico
+    fig = go.Figure()
+    
+    # Hospitalización = 0 (No hospitalizado)
+    fig.add_trace(go.Bar(
+        name='No Hospitalizado',
+        x=all_weeks,
+        y=[no_hosp_counts[w] for w in all_weeks],
+        marker=dict(color='#95a5a6'),  # Gris
+        hovertemplate='<b>Semana %{x}</b><br>No Hospitalizado: %{y}<extra></extra>'
+    ))
+    
+    # Hospitalización = 1 (Hospitalizado)
+    fig.add_trace(go.Bar(
+        name='Hospitalizado',
+        x=all_weeks,
+        y=[hosp_counts[w] for w in all_weeks],
+        marker=dict(color='#e74c3c'),  # Rojo
+        hovertemplate='<b>Semana %{x}</b><br>Hospitalizado: %{y}<extra></extra>'
+    ))
+    
+    fig.update_layout(
+        title=f'Casos de Hospitalización por Semana Epidemiológica<br><sub>No Hospitalizado: {total_no_hosp} | Hospitalizado: {total_hosp}</sub>',
+        xaxis_title='Semana Epidemiológica',
+        yaxis_title='Número de Casos',
+        barmode='stack',
+        template='plotly_white',
+        height=500,
+        font=dict(size=12),
+        margin=dict(l=60, r=40, t=100, b=60),
+        xaxis=dict(
+            type='category',
+            tickangle=-45
+        ),
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='right',
+            x=1
+        )
+    )
+    
+    return fig
+
+
+def plot_demographic_clinical_heatmap(df: pl.DataFrame) -> go.Figure:
+    """
+    Heatmap demográfico-clínico mostrando características por grupos etarios y sexo
+    
+    Eje Y: Hospitalizados, No hospitalizados, Severos, No severos, Total síntomas preexistentes promedio
+    Eje X: Grupos etarios (< 30, 30-44, 45-59, >60) y Sexo
+    
+    Args:
+        df: DataFrame con columnas Hospitalización, Severo, sexo, edad_entrevistado, Total_Cond_pre
+        
+    Returns:
+        Figura de plotly con heatmap
+    """
+    import numpy as np
+    
+    # Crear grupos etarios
+    df_with_age_group = df.with_columns([
+        pl.when(pl.col('edad_entrevistado') < 30).then(pl.lit('< 30'))
+        .when((pl.col('edad_entrevistado') >= 30) & (pl.col('edad_entrevistado') < 45)).then(pl.lit('30-44'))
+        .when((pl.col('edad_entrevistado') >= 45) & (pl.col('edad_entrevistado') < 60)).then(pl.lit('45-59'))
+        .when(pl.col('edad_entrevistado') >= 60).then(pl.lit('>60'))
+        .otherwise(pl.lit('Desconocido'))
+        .alias('grupo_etario')
+    ])
+    
+    # Filtrar casos válidos
+    df_valid = df_with_age_group.filter(
+        ~pl.col('Hospitalización').is_null() &
+        ~pl.col('Severo').is_null() &
+        ~pl.col('sexo').is_null() &
+        (pl.col('grupo_etario') != 'Desconocido')
+    )
+    
+    # Definir columnas X (grupos etarios + sexo)
+    age_groups = ['< 30', '30-44', '45-59', '>60']
+    sex_labels = ['Femenino', 'Masculino']
+    
+    # Matriz de datos
+    heatmap_data = []
+    y_labels = []
+    
+    # 1. Hospitalizados por grupo etario
+    row_hosp = []
+    for age in age_groups:
+        df_age = df_valid.filter(pl.col('grupo_etario') == age)
+        total_age = df_age.height
+        hosp = df_age.filter(pl.col('Hospitalización') == 1).height
+        pct = (hosp / total_age * 100) if total_age > 0 else 0
+        row_hosp.append(pct)
+    # Agregar por sexo
+    for sex_val, sex_label in [(1, 'Femenino'), (2, 'Masculino')]:
+        df_sex = df_valid.filter(pl.col('sexo') == sex_val)
+        total_sex = df_sex.height
+        hosp_sex = df_sex.filter(pl.col('Hospitalización') == 1).height
+        pct_sex = (hosp_sex / total_sex * 100) if total_sex > 0 else 0
+        row_hosp.append(pct_sex)
+    
+    heatmap_data.append(row_hosp)
+    y_labels.append('Hospitalizados (%)')
+    
+    # 2. No hospitalizados por grupo etario
+    row_no_hosp = []
+    for age in age_groups:
+        df_age = df_valid.filter(pl.col('grupo_etario') == age)
+        total_age = df_age.height
+        no_hosp = df_age.filter(pl.col('Hospitalización') == 0).height
+        pct = (no_hosp / total_age * 100) if total_age > 0 else 0
+        row_no_hosp.append(pct)
+    # Agregar por sexo
+    for sex_val, sex_label in [(1, 'Femenino'), (2, 'Masculino')]:
+        df_sex = df_valid.filter(pl.col('sexo') == sex_val)
+        total_sex = df_sex.height
+        no_hosp_sex = df_sex.filter(pl.col('Hospitalización') == 0).height
+        pct_sex = (no_hosp_sex / total_sex * 100) if total_sex > 0 else 0
+        row_no_hosp.append(pct_sex)
+    
+    heatmap_data.append(row_no_hosp)
+    y_labels.append('No hospitalizados (%)')
+    
+    # 3. Severos por grupo etario
+    row_sev = []
+    for age in age_groups:
+        df_age = df_valid.filter(pl.col('grupo_etario') == age)
+        total_age = df_age.height
+        sev = df_age.filter(pl.col('Severo') == 1).height
+        pct = (sev / total_age * 100) if total_age > 0 else 0
+        row_sev.append(pct)
+    # Agregar por sexo
+    for sex_val, sex_label in [(1, 'Femenino'), (2, 'Masculino')]:
+        df_sex = df_valid.filter(pl.col('sexo') == sex_val)
+        total_sex = df_sex.height
+        sev_sex = df_sex.filter(pl.col('Severo') == 1).height
+        pct_sex = (sev_sex / total_sex * 100) if total_sex > 0 else 0
+        row_sev.append(pct_sex)
+    
+    heatmap_data.append(row_sev)
+    y_labels.append('Severos (%)')
+    
+    # 4. No severos por grupo etario
+    row_no_sev = []
+    for age in age_groups:
+        df_age = df_valid.filter(pl.col('grupo_etario') == age)
+        total_age = df_age.height
+        no_sev = df_age.filter(pl.col('Severo') == 0).height
+        pct = (no_sev / total_age * 100) if total_age > 0 else 0
+        row_no_sev.append(pct)
+    # Agregar por sexo
+    for sex_val, sex_label in [(1, 'Femenino'), (2, 'Masculino')]:
+        df_sex = df_valid.filter(pl.col('sexo') == sex_val)
+        total_sex = df_sex.height
+        no_sev_sex = df_sex.filter(pl.col('Severo') == 0).height
+        pct_sex = (no_sev_sex / total_sex * 100) if total_sex > 0 else 0
+        row_no_sev.append(pct_sex)
+    
+    heatmap_data.append(row_no_sev)
+    y_labels.append('No severos (%)')
+    
+    # 5. Total síntomas preexistentes promedio
+    row_cond = []
+    for age in age_groups:
+        df_age = df_valid.filter(pl.col('grupo_etario') == age)
+        if df_age.height > 0:
+            avg_cond = df_age['Total_Cond_pre'].mean()
+        else:
+            avg_cond = 0
+        row_cond.append(avg_cond if avg_cond is not None else 0)
+    # Agregar por sexo
+    for sex_val, sex_label in [(1, 'Femenino'), (2, 'Masculino')]:
+        df_sex = df_valid.filter(pl.col('sexo') == sex_val)
+        if df_sex.height > 0:
+            avg_cond_sex = df_sex['Total_Cond_pre'].mean()
+        else:
+            avg_cond_sex = 0
+        row_cond.append(avg_cond_sex if avg_cond_sex is not None else 0)
+    
+    heatmap_data.append(row_cond)
+    y_labels.append('Condiciones preexistentes<br>(promedio)')
+    
+    # Columnas X
+    x_labels = age_groups + sex_labels
+    
+    # Crear heatmap
+    fig = go.Figure(data=go.Heatmap(
+        z=heatmap_data,
+        x=x_labels,
+        y=y_labels,
+        colorscale='RdYlBu_r',  # Rojo (alto) a Azul (bajo)
+        colorbar=dict(title='Valor'),
+        hoverongaps=False,
+        text=[[f'{val:.1f}' for val in row] for row in heatmap_data],
+        texttemplate='%{text}',
+        textfont=dict(size=11),
+        hovertemplate='Grupo: %{x}<br>Variable: %{y}<br>Valor: %{z:.2f}<extra></extra>'
+    ))
+    
+    fig.update_layout(
+        title='Heatmap Demográfico-Clínico: Características por Edad y Sexo',
+        xaxis_title='Grupo Etario / Sexo',
+        yaxis_title='Característica Clínica',
+        template='plotly_white',
+        height=600,
+        font=dict(size=12),
+        xaxis=dict(
+            side='top',
+            tickangle=0
+        ),
+        yaxis=dict(
+            side='left'
+        ),
+        margin=dict(l=150, r=40, t=120, b=40)
+    )
+    
+    return fig
+

@@ -56,10 +56,12 @@ def create_criterio_variables(df: pl.DataFrame) -> pl.DataFrame:
         
         # Criterio 3: COVID + pertenece_cluster_count >= 1 + No recuperado
         # DP4 (covid == 1) & P17 (pertenece_cluster_count >= 1) & P20 (recuperado_3m == 2)
+        # IMPORTANTE: Si recuperado_3m es NULL, el caso se marca como 0 (no cumple criterio)
         pl.when(
             (pl.col("covid") == 1) & 
             (pl.col("pertenece_cluster_count") >= 1) & 
-            (pl.col("recuperado_3m") == 2)
+            (pl.col("recuperado_3m") == 2) &
+            (~pl.col("recuperado_3m").is_null())
         )
         .then(1)
         .otherwise(0)
@@ -158,3 +160,66 @@ def create_descriptive_table(df: pl.DataFrame, variables: list[str]) -> pl.DataF
             })
     
     return pl.DataFrame(stats_list)
+
+
+def analyze_criterios_null_impact(df: pl.DataFrame) -> dict:
+    """
+    Analiza el impacto de los valores NULL en cada criterio.
+    Compara los conteos originales vs conteos solo con datos completos.
+    
+    Args:
+        df: DataFrame con los criterios calculados
+    
+    Returns:
+        Dict con análisis de NULLs por criterio:
+        {
+            'criterio_1': {
+                'total_casos': int,
+                'casos_con_datos_completos': int,
+                'casos_perdidos': int,
+                'variables': list[str]
+            },
+            ...
+        }
+    """
+    # Variables involucradas en cada criterio
+    criterios_vars = {
+        'criterio_1': ['longCOVID'],
+        'criterio_2': ['covid', 'sintoma_recurrente_count', 'recuperado_3m'],
+        'criterio_3': ['covid', 'pertenece_cluster_count', 'recuperado_3m'],
+        'criterio_4': ['covid', 'conteo_nueva_condicion', 'sec_count']
+    }
+    
+    resultado = {}
+    
+    for criterio_num in range(1, 5):
+        criterio_col = f'criterio_{criterio_num}'
+        variables = criterios_vars[criterio_col]
+        
+        # Conteo total de casos que cumplen el criterio (con o sin NULLs)
+        total_casos = df.filter(pl.col(criterio_col) == 1).height
+        
+        # Filtrar solo los casos que cumplen el criterio Y tienen todos los datos completos
+        df_sin_nulls = df
+        for var in variables:
+            df_sin_nulls = df_sin_nulls.filter(pl.col(var).is_not_null())
+        
+        casos_con_datos_completos = df_sin_nulls.filter(pl.col(criterio_col) == 1).height
+        
+        # Casos perdidos por tener NULLs
+        casos_perdidos = total_casos - casos_con_datos_completos
+        porcentaje_perdido = (casos_perdidos / total_casos * 100) if total_casos > 0 else 0
+        
+        # Total de registros con datos completos para este criterio
+        total_con_datos_completos = df_sin_nulls.height
+        
+        resultado[criterio_col] = {
+            'total_casos': total_casos,
+            'casos_con_datos_completos': casos_con_datos_completos,
+            'casos_perdidos': casos_perdidos,
+            'porcentaje_perdido': porcentaje_perdido,
+            'variables': variables,
+            'total_registros_completos': total_con_datos_completos
+        }
+    
+    return resultado
