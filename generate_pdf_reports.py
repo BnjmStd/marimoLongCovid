@@ -144,42 +144,7 @@ def create_pdf_report(title: str, interpretation: str, image_path: str, output_f
     # Construir contenido
     story = []
     
-    # PÁGINA 1: INTERPRETACIÓN
-    story.append(Paragraph(title, title_style))
-    story.append(Spacer(1, 0.3*inch))
-    
-    # Procesar interpretación (convertir markdown básico a reportlab)
-    lines = interpretation.strip().split('\n')
-    for line in lines:
-        line = line.strip()
-        if not line:
-            story.append(Spacer(1, 0.1*inch))
-            continue
-        
-        # Detectar subtítulos (líneas que empiezan con **)
-        if line.startswith('**') and '**' in line[2:]:
-            # Extraer texto entre **
-            clean_line = line.replace('**', '').strip()
-            if ':' in clean_line:
-                clean_line = clean_line.split(':')[0]
-            story.append(Paragraph(f"<b>{clean_line}</b>", subtitle_style))
-        # Detectar listas
-        elif line.startswith('- ') or line.startswith('• '):
-            clean_line = line[2:].strip()
-            # Remover todos los **
-            clean_line = clean_line.replace('**', '')
-            story.append(Paragraph(f"• {clean_line}", normal_style))
-        # Texto normal
-        else:
-            # Remover todos los **
-            clean_line = line.replace('**', '')
-            if clean_line:
-                story.append(Paragraph(clean_line, normal_style))
-    
-    # Page break antes del gráfico
-    story.append(PageBreak())
-    
-    # PÁGINA 2: GRÁFICO
+    # SOLO GRÁFICO (sin interpretación)
     story.append(Paragraph(title, title_style))
     story.append(Spacer(1, 0.3*inch))
     
