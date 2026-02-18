@@ -989,72 +989,137 @@ def plot_secuelas_by_week(df: pl.DataFrame) -> go.Figure:
 
 def plot_clusters_heatmap_by_diagnosis_week(df: pl.DataFrame) -> go.Figure:
     """
-    Heatmap de clusters por semana de diagnóstico COVID
-    Muestra el número de personas diagnosticadas cada semana que tienen cada cluster
+    Heatmap de SÍNTOMAS ordenados por cluster, por semana de diagnóstico COVID
+    Muestra la prevalencia de cada síntoma individual agrupado por cluster
     
     Args:
-        df: DataFrame con columnas de clusters y covid_dg_fecha
+        df: DataFrame con columnas de síntomas a 3 meses y yearweek
     
     Returns:
-        Figura con heatmap de clusters x semanas
+        Figura con heatmap de síntomas (ordenados por cluster) x semanas
     """
-    # Clusters disponibles
-    clusters_info = [
-        ('cluster_via_aerea_bi', 'AIRWAYS'),
-        ('cluster_cognitivo_bi', 'COGNITIVE'),
-        ('cluster_gastrointestinal_bi', 'GASTROINTESTINAL'),
-        ('cluster_muscular_bi', 'MUSCULAR'),
-        ('cluster_respiratorio_bi', 'RESPIRATORY'),
-        ('cluster_olfato_gusto_bi', 'SMELL/TASTE'),
-        ('longCOVID', 'Long-COVID')
+    # Definición de clusters con sus síntomas individuales
+    # Cada tupla: (variable_sintoma, nombre_mostrar, cluster_grupo)
+    sintomas_por_cluster = [
+        # AIRWAYS cluster
+        ('congestion_3m', 'Nasal congestion', 'AIRWAYS'),
+        ('tos_3m', 'Cough', 'AIRWAYS'),
+        ('', 'Phlegm', 'AIRWAYS'),  # No disponible en dataset
+        ('do_garganta_3m', 'Sore throat', 'AIRWAYS'),
+        
+        # COGNITIVE cluster
+        ('depresion_3m', 'Depression/Anxiety', 'COGNITIVE'),
+        ('memoria_3m', 'Memory impairment', 'COGNITIVE'),
+        ('do_cabeza_3m', 'Headache', 'COGNITIVE'),
+        ('somnolencia_3m', 'Drowsiness', 'COGNITIVE'),
+        
+        # GASTROINTESTINAL cluster
+        ('do_abdominal_3m', 'Abdominal pain', 'GASTROINTESTINAL'),
+        ('nausea_3m', 'Nausea', 'GASTROINTESTINAL'),
+        ('hin_piernas_3m', 'Edema (swollen legs)', 'GASTROINTESTINAL'),
+        ('diarrea_3m', 'Diarrhea', 'GASTROINTESTINAL'),
+        ('pe_peso_3m', 'Weight loss', 'GASTROINTESTINAL'),
+        ('apetito_3m', 'Change in appetite', 'GASTROINTESTINAL'),
+        
+        # MUSCULAR cluster
+        ('do_musculos_3m', 'Muscle pain', 'MUSCULAR'),
+        ('do_articulacion_3m', 'Joint pain', 'MUSCULAR'),
+        ('pes_piernas_3m', 'Legs feel heavy', 'MUSCULAR'),
+        
+        # RESPIRATORY cluster
+        ('fa_aliento_3m', 'Shortness of breath', 'RESPIRATORY'),
+        ('fatiga_3m', 'Fatigue', 'RESPIRATORY'),
+        ('do_pecho_3m', 'Chest pain', 'RESPIRATORY'),
+        ('di_respirar_3m', 'Breathing difficulty', 'RESPIRATORY'),
+        
+        # SMELL/TASTE cluster
+        ('pe_olfato_3m', 'Anosmia', 'SMELL/TASTE'),
+        ('ca_olfato_3m', 'Change in smell', 'SMELL/TASTE'),
+        ('pe_gusto_3m', 'Ageusia', 'SMELL/TASTE'),
+        ('ca_gusto_3m', 'Change in taste', 'SMELL/TASTE'),
     ]
     
-    # Convertir fecha de diagnóstico a yearweek si no existe
-    # Usar yearweek existente como aproximación
-    df_heat = df.select(['yearweek'] + [col for col, _ in clusters_info])
-    
     # Obtener semanas únicas ordenadas
-    all_weeks = sorted(df_heat.select('yearweek').unique().to_series().to_list())
+    all_weeks = sorted(df.select('yearweek').unique().to_series().to_list())
     
-    # Crear matriz de datos
+    # Crear matriz de datos y etiquetas
     heatmap_data = []
-    cluster_labels = []
+    symptom_labels = []
+    cluster_boundaries = []  # Para marcar separación entre clusters
     
-    for col, label in clusters_info:
-        cluster_labels.append(label)
+    current_cluster = None
+    row_idx = 0
+    
+    for var_col, label, cluster in sintomas_por_cluster:
+        # Detectar cambio de cluster para agregar separador visual
+        if cluster != current_cluster:
+            if current_cluster is not None:
+                # Agregar línea separadora (fila vacía)
+                cluster_boundaries.append(row_idx)
+            current_cluster = cluster
+        
+        symptom_labels.append(f"{label}")
+        
+        # Si la columna no existe o está vacía, agregar fila con ceros
+        if not var_col or var_col not in df.columns:
+            heatmap_data.append([0] * len(all_weeks))
+            row_idx += 1
+            continue
+        
+        # Contar casos por semana para este síntoma (valor == 1)
         row_data = []
+        for week in all_weeks:
+            # Filtrar por semana y síntoma presente (==1)
+            count = df.filter(
+                (pl.col('yearweek') == week) & 
+                (pl.col(var_col) == 1)
+            ).height
+            row_data.append(count)
         
-        # Contar casos por semana para este cluster
-        df_cluster = df_heat.filter(pl.col(col) == 1).group_by('yearweek').agg(
-            pl.len().alias('n')
-        )
-        
-        # Crear diccionario
-        week_dict = {week: 0 for week in all_weeks}
-        for row in df_cluster.iter_rows(named=True):
-            week_dict[row['yearweek']] = row['n']
-        
-        # Agregar datos en orden
-        row_data = [week_dict[w] for w in all_weeks]
         heatmap_data.append(row_data)
+        row_idx += 1
+    
+    # Crear anotaciones para nombres de clusters (a la izquierda)
+    annotations = []
+    cluster_ranges = {
+        'AIRWAYS': (0, 4),
+        'COGNITIVE': (4, 8),
+        'GASTROINTESTINAL': (8, 14),
+        'MUSCULAR': (14, 17),
+        'RESPIRATORY': (17, 21),
+        'SMELL/TASTE': (21, 25)
+    }
     
     # Crear heatmap
     fig = go.Figure(data=go.Heatmap(
         z=heatmap_data,
         x=all_weeks,
-        y=cluster_labels,
+        y=symptom_labels,
         colorscale='Viridis',
-        colorbar=dict(title='Number of individuals'),
+        colorbar=dict(title='N° individuals'),
         hoverongaps=False,
-        hovertemplate='Semana: %{x}<br>Cluster: %{y}<br>Casos: %{z}<extra></extra>'
+        hovertemplate='Week: %{x}<br>Symptom: %{y}<br>Cases: %{z}<extra></extra>'
     ))
     
+    # Agregar líneas divisorias entre clusters
+    shapes = []
+    for boundary_idx in cluster_boundaries:
+        shapes.append(dict(
+            type='line',
+            x0=-0.5,
+            x1=len(all_weeks) - 0.5,
+            y0=boundary_idx - 0.5,
+            y1=boundary_idx - 0.5,
+            line=dict(color='white', width=2)
+        ))
+    
     fig.update_layout(
-        title='Clusters/Phenotype - Síntomas ≥ 3 meses por Semana de Diagnóstico',
-        xaxis_title='Semana Epidemiológica',
-        yaxis_title='Cluster/Phenotype',
+        title='Symptoms at ≥3 months (ordered by cluster) by Week of Diagnosis',
+        xaxis_title='Epidemiological Week',
+        yaxis_title='Symptoms (grouped by cluster)',
         template='plotly_white',
-        height=500,
+        height=800,  # Más alto para mostrar todos los síntomas
+        width=1400,
         xaxis=dict(
             type='category',
             tickangle=-45,
@@ -1062,8 +1127,10 @@ def plot_clusters_heatmap_by_diagnosis_week(df: pl.DataFrame) -> go.Figure:
         ),
         yaxis=dict(
             side='left',
-            autorange='reversed'
-        )
+            autorange='reversed',
+            tickfont=dict(size=10)
+        ),
+        shapes=shapes
     )
     
     return fig

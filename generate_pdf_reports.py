@@ -5,6 +5,8 @@ Cada PDF contiene:
 - Página 1: Interpretación del gráfico
 - Página 2: El gráfico visualizado
 
+NOTA: Las tablas se exportan usando ReportLab Table para evitar cortes
+
 Uso: python generate_pdf_reports.py
 """
 
@@ -13,8 +15,10 @@ from pathlib import Path
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Image
+from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, PageBreak, 
+                                 Image, Table, TableStyle, KeepTogether)
 from reportlab.lib.enums import TA_JUSTIFY, TA_LEFT, TA_CENTER
+from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 import polars as pl
 
@@ -81,6 +85,242 @@ def save_plotly_figure_as_image(fig, filename: str) -> str:
             print(f"   ❌ Error guardando imagen: {e2}")
             return None
     return str(img_path)
+
+
+def extract_table_data_from_plotly(fig):
+    """
+    Extrae datos de una tabla de Plotly para convertirla a ReportLab Table
+    
+    Args:
+        fig: Figura de Plotly que contiene una tabla (go.Table)
+    
+    Returns:
+        Tuple (header_data, cell_data) con los datos de la tabla
+    """
+    try:
+        # Obtener el primer trace que debe ser una tabla
+        table_trace = fig.data[0]
+        
+        # Extraer headers
+        header_values = table_trace.header.values
+        
+        # Extraer cells (rows)
+        cell_values = table_trace.cells.values
+        
+        # Transponer para obtener filas
+        num_rows = len(cell_values[0]) if cell_values else 0
+        rows = []
+        for i in range(num_rows):
+            row = [col[i] if i < len(col) else '' for col in cell_values]
+            rows.append(row)
+        
+        return header_values, rows
+    except Exception as e:
+        print(f"   ⚠️  Error extrayendo datos de tabla: {e}")
+        return None, None
+
+
+def create_pdf_table_report(title: str, interpretation: str, table_fig, output_filename: str):
+    """
+    Crea un PDF con una tabla usando ReportLab Table (no PNG)
+    Permite tablas multipágina sin cortes
+    
+    Args:
+        title: Título de la tabla
+        interpretation: Texto de interpretación
+        table_fig: Figura de Plotly con la tabla
+        output_filename: Nombre del archivo PDF de salida
+    """
+    pdf_path = OUTPUT_DIR / output_filename
+    
+    # Crear documento con márgenes reducidos para tablas anchas
+    doc = SimpleDocTemplate(
+        str(pdf_path),
+        pagesize=letter,
+        rightMargin=0.5*inch,
+        leftMargin=0.5*inch,
+        topMargin=0.75*inch,
+        bottomMargin=0.5*inch
+    )
+    
+    # Estilos
+    styles = getSampleStyleSheet()
+    
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=14,
+        textColor='#2c3e50',
+        spaceAfter=15,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+    
+    normal_style = ParagraphStyle(
+        'CustomNormal',
+        parent=styles['Normal'],
+        fontSize=9,
+        leading=12,
+        alignment=TA_LEFT,
+        spaceAfter=8,
+        fontName='Helvetica'
+    )
+    
+    # Construir contenido
+    story = []
+    
+    # Título
+    story.append(Paragraph(title, title_style))
+    story.append(Spacer(1, 0.2*inch))
+    
+    # Extraer datos de la tabla de Plotly
+    header_data, rows_data = extract_table_data_from_plotly(table_fig)
+    
+    if header_data is None or rows_data is None:
+        story.append(Paragraph("<i>Error: No se pudo extraer la tabla</i>", normal_style))
+        doc.build(story)
+        print(f"   ⚠️  PDF creado con error: {pdf_path.name}")
+        return
+    
+    # Preparar datos para ReportLab Table
+    # Limpiar etiquetas HTML básicas de los datos
+    def clean_html(text):
+        """Limpia HTML básico de texto"""
+        if not isinstance(text, str):
+            return str(text)
+        text = text.replace('<b>', '').replace('</b>', '')
+        text = text.replace('<i>', '').replace('</i>', '')
+        text = text.replace('<br>', ' ')
+        return text
+    
+    # Estilo para texto con wrapping en celdas
+    cell_style = ParagraphStyle(
+        'CellStyle',
+        parent=styles['Normal'],
+        fontSize=8,
+        leading=10,
+        alignment=TA_LEFT,
+        fontName='Helvetica'
+    )
+    
+    cell_style_center = ParagraphStyle(
+        'CellStyleCenter',
+        parent=styles['Normal'],
+        fontSize=8,
+        leading=10,
+        alignment=TA_CENTER,
+        fontName='Helvetica'
+    )
+    
+    cell_style_bold = ParagraphStyle(
+        'CellStyleBold',
+        parent=styles['Normal'],
+        fontSize=8,
+        leading=10,
+        alignment=TA_LEFT,
+        fontName='Helvetica-Bold'
+    )
+    
+    # Preparar header con Paragraph para wrapping
+    header_style = ParagraphStyle(
+        'HeaderStyle',
+        parent=styles['Normal'],
+        fontSize=9,
+        leading=11,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold',
+        textColor=colors.whitesmoke
+    )
+    
+    table_data = [[Paragraph(clean_html(h), header_style) for h in header_data]]
+    
+    # Agregar filas (limitar a primeras 100 para evitar PDFs demasiado largos)
+    max_rows = min(100, len(rows_data))
+    for row in rows_data[:max_rows]:
+        # Primera columna (Variable) con Paragraph para wrapping
+        # Detectar si es header de sección (en negrita)
+        first_col_text = clean_html(row[0])
+        is_section_header = '<b>' in str(row[0])
+        
+        if is_section_header:
+            first_col = Paragraph(first_col_text, cell_style_bold)
+        else:
+            first_col = Paragraph(first_col_text, cell_style)
+        
+        # Resto de columnas centradas
+        rest_cols = [Paragraph(clean_html(cell), cell_style_center) for cell in row[1:]]
+        
+        table_data.append([first_col] + rest_cols)
+    
+    if len(rows_data) > max_rows:
+        table_data.append([Paragraph('...', cell_style)] + [Paragraph('', cell_style_center)] * (len(header_data) - 1))
+        table_data.append([Paragraph(f'(Mostrando {max_rows} de {len(rows_data)} filas)', cell_style)] + 
+                         [Paragraph('', cell_style_center)] * (len(header_data) - 1))
+    
+    # Calcular anchos de columna de forma inteligente
+    # Primera columna (Variable): 55% del ancho
+    # Resto de columnas: dividir el 45% restante
+    available_width = letter[0] - 1.0*inch
+    
+    if len(header_data) == 4:  # Típica tabla con Variable, No LC, LC, P-value
+        col_widths = [
+            available_width * 0.50,  # Variable - 50%
+            available_width * 0.20,  # No Long COVID - 20%
+            available_width * 0.20,  # Long COVID - 20%
+            available_width * 0.10   # P-value - 10%
+        ]
+    else:
+        # Fallback: primera columna 55%, resto distribuido
+        first_col_width = available_width * 0.55
+        remaining_width = available_width * 0.45
+        other_col_width = remaining_width / (len(header_data) - 1)
+        col_widths = [first_col_width] + [other_col_width] * (len(header_data) - 1)
+    
+    # Crear tabla con ReportLab
+    tabla = Table(table_data, colWidths=col_widths, repeatRows=1)
+    
+    # Estilo de la tabla
+    tabla.setStyle(TableStyle([
+        # Header
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('TOPPADDING', (0, 0), (-1, 0), 10),
+        
+        # Body - alineación
+        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+        ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+        ('VALIGN', (0, 1), (-1, -1), 'TOP'),  # Alineación vertical arriba
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('TOPPADDING', (0, 1), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
+        ('LEFTPADDING', (0, 1), (-1, -1), 5),
+        ('RIGHTPADDING', (0, 1), (-1, -1), 5),
+        
+        # Grid
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('LINEBELOW', (0, 0), (-1, 0), 2, colors.HexColor('#2c3e50')),
+        
+        # Zebra striping - filas alternas
+        *[('BACKGROUND', (0, i), (-1, i), colors.HexColor('#f8f9fa'))
+          for i in range(2, len(table_data), 2)]
+    ]))
+    
+    story.append(tabla)
+    
+    # Construir PDF
+    try:
+        doc.build(story)
+        print(f"   ✅ PDF de tabla creado: {pdf_path.name}")
+    except Exception as e:
+        print(f"   ❌ Error creando PDF de tabla: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def create_pdf_report(title: str, interpretation: str, image_path: str, output_filename: str):
@@ -636,27 +876,46 @@ Eje Y: Hospitalización, Severidad, Condiciones preexistentes
         
         try:
             # Generar figura
-            print("   🎨 Generando gráfico...")
+            print("   🎨 Generando gráfico/tabla...")
             fig = report['function'](*report['args'])
             
-            # Guardar como imagen
-            print("   💾 Guardando imagen temporal...")
-            img_filename = clean_filename(report['title'])
-            img_path = save_plotly_figure_as_image(fig, img_filename)
+            # Detectar si es una tabla (go.Table) o un gráfico normal
+            is_table = False
+            if hasattr(fig, 'data') and len(fig.data) > 0:
+                # Verificar si el primer trace es una tabla
+                first_trace = fig.data[0]
+                if hasattr(first_trace, 'type') and first_trace.type == 'table':
+                    is_table = True
             
-            if img_path is None:
-                print("   ⚠️  Saltando (no se pudo generar imagen)")
-                continue
+            pdf_filename = f"{clean_filename(report['title'])}.pdf"
             
-            # Crear PDF
-            print("   📄 Creando PDF...")
-            pdf_filename = f"{img_filename}.pdf"
-            create_pdf_report(
-                report['title'],
-                report['interpretation'],
-                img_path,
-                pdf_filename
-            )
+            if is_table:
+                # Es una tabla - usar ReportLab Table nativo
+                print("   📊 Detectada tabla - usando exportación nativa...")
+                create_pdf_table_report(
+                    report['title'],
+                    report['interpretation'],
+                    fig,
+                    pdf_filename
+                )
+            else:
+                # Es un gráfico - usar PNG como antes
+                print("   💾 Guardando imagen temporal...")
+                img_filename = clean_filename(report['title'])
+                img_path = save_plotly_figure_as_image(fig, img_filename)
+                
+                if img_path is None:
+                    print("   ⚠️  Saltando (no se pudo generar imagen)")
+                    continue
+                
+                # Crear PDF
+                print("   📄 Creando PDF...")
+                create_pdf_report(
+                    report['title'],
+                    report['interpretation'],
+                    img_path,
+                    pdf_filename
+                )
             
         except Exception as e:
             print(f"   ❌ Error: {e}")
