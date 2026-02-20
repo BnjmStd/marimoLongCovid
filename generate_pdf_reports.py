@@ -567,11 +567,11 @@ Eje Y: Hospitalización, Severidad, Condiciones preexistentes
         """
     })
     
-    # ANCESTRÍAS GENÉTICAS
+    # ANCESTRÍAS GENÉTICAS POR SEMANA
     reports.append({
         'function': plot_linaje_barplot,
         'args': (df_con_criterios,),
-        'title': 'Distribución de Ancestrías Genéticas',
+        'title': 'Distribución de Ancestrías Genéticas por Semana Epidemiológica',
         'interpretation': """
 **Variables:** EUR, AFR, EAS, AYM, MAP
 

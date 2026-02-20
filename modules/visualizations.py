@@ -2357,31 +2357,17 @@ def create_table1_stratified(df: pl.DataFrame, stratify_by: str = 'longCOVID') -
 
 def plot_linaje_barplot(df: pl.DataFrame) -> go.Figure:
     """
-    Barplot de proporción promedio de ancestrías genéticas
+    Barplot apilado de distribución de ancestrías genéticas por semana epidemiológica.
+    Cada barra representa una semana; las franjas muestran la proporción media de cada
+    ancestría (EUR, AFR, EAS, AYM, MAP) para los casos de esa semana.
     
     Args:
-        df: DataFrame con columnas EUR, AFR, EAS, AYM, MAP
+        df: DataFrame con columnas yearweek, EUR, AFR, EAS, AYM, MAP
         
     Returns:
-        Figura de plotly con barplot de ancestrías promedio
+        Figura de plotly con barplot apilado por semana epidemiológica
     """
-    # Calcular promedios de ancestría
     ancestrias = ['EUR', 'AFR', 'EAS', 'AYM', 'MAP']
-    promedios = []
-    
-    for anc in ancestrias:
-        promedio = df[anc].mean()
-        promedios.append(promedio)
-    
-    # Crear DataFrame para gráfico
-    df_ancestrias = pl.DataFrame({
-        'Ancestría': ancestrias,
-        'Proporción_Promedio': promedios
-    })
-    
-    df_pd = df_ancestrias.to_pandas()
-    
-    # Colores por ancestría
     colores = {
         'EUR': '#3498db',  # Azul - Europea
         'AFR': '#e67e22',  # Naranja - Africana
@@ -2389,32 +2375,62 @@ def plot_linaje_barplot(df: pl.DataFrame) -> go.Figure:
         'AYM': '#9b59b6',  # Púrpura - Aymara
         'MAP': '#e74c3c'   # Rojo - Mapuche
     }
-    
-    colors_list = [colores[anc] for anc in ancestrias]
-    
-    # Crear barplot
+    nombres = {
+        'EUR': 'Europea (EUR)',
+        'AFR': 'Africana (AFR)',
+        'EAS': 'Asia Oriental (EAS)',
+        'AYM': 'Aymara (AYM)',
+        'MAP': 'Mapuche (MAP)'
+    }
+
+    # Obtener semanas únicas ordenadas (igual que los demás barplots)
+    all_weeks = sorted(df.select('yearweek').unique().to_series().to_list())
+
     fig = go.Figure()
-    
-    fig.add_trace(go.Bar(
-        x=df_pd['Ancestría'],
-        y=df_pd['Proporción_Promedio'],
-        marker=dict(
-            color=colors_list,
-            line=dict(color='#34495e', width=1.5)
-        ),
-        hovertemplate='Ancestría: %{x}<br>Proporción Promedio: %{y:.4f}<extra></extra>'
-    ))
-    
+
+    for anc in ancestrias:
+        # Proporción media de cada ancestría por semana epidemiológica
+        df_agg = df.group_by('yearweek').agg(
+            pl.col(anc).mean().alias('prop_media')
+        ).sort('yearweek')
+
+        anc_dict = {week: 0.0 for week in all_weeks}
+        for row in df_agg.iter_rows(named=True):
+            anc_dict[row['yearweek']] = row['prop_media']
+
+        fig.add_trace(go.Bar(
+            name=nombres[anc],
+            x=all_weeks,
+            y=[anc_dict[w] for w in all_weeks],
+            marker=dict(
+                color=colores[anc],
+                line=dict(color='#34495e', width=0.5)
+            ),
+            hovertemplate=f'<b>{nombres[anc]}</b><br>Semana: %{{x}}<br>Proporción media: %{{y:.4f}}<extra></extra>'
+        ))
+
     fig.update_layout(
-        title='Distribución Promedio de Ancestrías Genéticas',
-        xaxis_title='Ancestría Genética',
-        yaxis_title='Proporción Promedio',
+        title='Distribución de Ancestrías Genéticas por Semana Epidemiológica',
+        xaxis_title='Semana Epidemiológica',
+        yaxis_title='Proporción Media de Ancestría',
+        barmode='stack',
         template='plotly_white',
         height=500,
         font=dict(size=12),
-        margin=dict(l=60, r=40, t=80, b=60)
+        margin=dict(l=60, r=40, t=100, b=60),
+        xaxis=dict(
+            type='category',
+            tickangle=-45
+        ),
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='right',
+            x=1
+        )
     )
-    
+
     return fig
 
 
