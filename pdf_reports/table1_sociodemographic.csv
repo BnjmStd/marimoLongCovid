@@ -1,0 +1,35 @@
+Variable,Average / Levels,Men,Women,Controls,Cases
+,─── Socio-Demographic ───,,,,
+Age,41.31 (13.35),43.80 (13.69),39.85 (12.94),40.59 (13.50),41.52 (13.31)
+Sex,Total (n=1505),555,950,346,1159
+,  Male,555,0,160,395
+,  Female,0,950,186,764
+Ethnicity,Total (n=1504),555,949,346,1158
+,  Afrodescendiente,0,6,0,6
+,  Atacameño,1,5,0,6
+,  Aymara,20,34,16,38
+,  Colla,0,3,0,3
+,  Diaguita,7,11,4,14
+,  Kawésqar,1,1,0,2
+,  Mapuche,59,126,43,142
+,  Quechua,0,2,0,2
+,  Rapa Nui,1,0,0,1
+,  Ninguna,460,758,281,937
+,  Otro,6,3,2,7
+Ancestry AMR,0.43 (0.14),0.42 (0.14),0.43 (0.13),0.43 (0.15),0.43 (0.13)
+Ancestry AFR,0.01 (0.01),0.01 (0.01),0.01 (0.02),0.01 (0.02),0.01 (0.01)
+Population Density,2526.00 (4720.47),2576.40 (4902.20),2496.67 (4613.83),2465.14 (4775.64),2544.21 (4705.78)
+Geographic Location,Total (n=1372),520,852,327,1045
+,  North,149,265,88,326
+,  Center,136,198,75,259
+,  Center South,18,22,6,34
+,  South,100,113,68,145
+,  Austral,117,254,90,281
+Education Level,Total (n=1358),529,829,315,1043
+,  Elementary School or Lower Level,55,66,28,93
+,  High School,154,227,84,297
+,  Professional Technician,81,184,51,214
+,  University,239,352,152,439
+Healthcare System,Total (n=1409),549,860,322,1087
+,  Public,278,564,177,665
+,  Private,271,296,145,422

@@ -8,6 +8,7 @@ itsdangerous==2.2.0
 jedi==0.19.2
 kaleido==0.2.1
 loro==1.10.3
+lxml==6.0.2
 marimo==0.19.6
 Markdown==3.10
 msgspec==0.20.0
@@ -25,6 +26,7 @@ pycrdt==0.11.1
 Pygments==2.19.2
 pymdown-extensions==10.20
 python-dateutil==2.9.0.post0
+python-docx==1.2.0
 pytz==2025.2
 PyYAML==6.0.3
 reportlab==4.4.9
@@ -34,6 +36,7 @@ six==1.17.0
 starlette==0.52.1
 tenacity==9.1.2
 tomlkit==0.14.0
+typing_extensions==4.15.0
 tzdata==2025.3
 uvicorn==0.40.0
 websockets==16.0
