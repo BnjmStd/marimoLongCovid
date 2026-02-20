@@ -544,6 +544,36 @@ Eje X: Semana epidemiológica | Eje Y: Clusters sintomáticos
         """
     })
     
+    # CLUSTERS INDIVIDUALES BY WEEK
+    reports.append({
+        'function': plot_clusters_individuales_by_week,
+        'args': (df_con_criterios,),
+        'title': 'Clusters Individuales por Semana Epidemiológica',
+        'interpretation': """
+**Gráfico de barras apilado por fecha de diagnóstico (semana epidemiológica) coloreado por clusters de Long COVID**
+
+**Clusters incluidos:**
+- 🟣 Cognitivo: Problemas de memoria, concentración, niebla mental
+- 🟠 Gastrointestinal: Náuseas, dolor abdominal, diarrea
+- 🔴 Muscular: Dolor muscular, debilidad, pesadez de piernas
+- 🟡 Olfato/Gusto: Anosmia, ageusia, cambios sensoriales
+- 🔵 Respiratorio: Disnea, tos persistente, dificultad respiratoria
+- 🟢 Vía Aérea: Congestión nasal, dolor de garganta, voz ronca
+
+**Hallazgos clave:**
+- Cada barra representa el total de pacientes diagnosticados esa semana
+- Los colores muestran qué clusters de síntomas presentaban
+- Un paciente puede pertenecer a múltiples clusters simultáneamente
+- Permite identificar fenotipos predominantes en diferentes períodos temporales
+
+**Implicaciones clínicas:**
+- Identificación de subgrupos sintomáticos para intervenciones específicas
+- Estratificación de pacientes según fenotipos clínicos
+- Vigilancia de cambios en presentación clínica a lo largo del tiempo
+- Útil para diseño de protocolos de seguimiento diferenciados por fenotipo
+        """
+    })
+    
     # HEATMAP DEMOGRÁFICO
     reports.append({
         'function': plot_demographic_clinical_heatmap,
