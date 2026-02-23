@@ -33,3 +33,47 @@ Education Level,Total (n=1358),529,829,315,1043
 Healthcare System,Total (n=1409),549,860,322,1087
 ,  Public,278,564,177,665
 ,  Private,271,296,145,422
+Employment Situation,Total (n=1342),518,824,313,1029
+,  Employed,425,593,238,780
+,  Unemployed,27,41,13,55
+,  Idle,66,190,62,194
+,─── Clinical - Lifestyle ───,,,,
+Weight,77.53 (16.21),85.57 (14.17),72.57 (15.39),76.88 (16.02),77.74 (16.27)
+Height,164.92 (9.22),173.05 (6.92),159.82 (6.39),166.40 (9.75),164.46 (9.00)
+BMI,28.51 (5.32),28.61 (4.38),28.44 (5.83),27.72 (4.83),28.75 (5.44)
+Tobacco Consumption,Total (n=1480),547,933,336,1144
+,  Yes,282,453,157,578
+,  No,265,480,179,566
+Tobacco Daily Frequency,Total (n=1373),534,839,312,1061
+,  31 or more,5,1,1,5
+,  21 to 30,10,7,2,15
+,  11 to 20,26,30,16,40
+,  1 to 10,120,185,63,242
+,  Less than one,113,196,69,240
+,  Never smoke,260,420,161,519
+Alcohol Consumption,Total (n=1383),535,848,315,1068
+,  2 or more times a week,49,36,29,56
+,  2-4 times a month,206,217,107,316
+,  Once a month or less,151,314,90,375
+,  Never drinks,129,281,89,321
+,─── COVID-19 ───,,,,
+No. Symptoms,10.51 (6.71),9.63 (6.41),11.03 (6.83),7.46 (5.75),11.43 (6.71)
+No. Pre-existing diseases,0.88 (1.21),0.84 (1.20),0.90 (1.22),0.56 (0.91),0.97 (1.27)
+More than 5 Symptoms,Total (n=1505),555,950,346,1159
+,  Yes,381,721,203,899
+,  No,174,229,143,260
+Severe Infection,Total (n=1505),555,950,346,1159
+,  Yes,84,74,15,143
+,  No,471,876,331,1016
+Recovered,Total (n=1497),553,944,343,1154
+,  Yes,430,647,331,746
+,  No,123,297,12,408
+Health problems that limit daily activities,Total (n=1500),553,947,343,1157
+,  Yes,4,21,0,25
+,  No,546,919,340,1125
+Need someone to help regularly,Total (n=1500),554,946,344,1156
+,  Yes,8,33,2,39
+,  No,543,907,339,1111
+Health problems that require to stay at home,Total (n=1501),554,947,344,1157
+,  Yes,11,32,3,40
+,  No,540,908,338,1110

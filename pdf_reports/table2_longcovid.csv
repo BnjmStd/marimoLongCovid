@@ -1,0 +1,87 @@
+Variable,Average / Levels,Controls,Cases,p-value
+,─── Socio-Demographic ───,,,
+Age,41.31 (13.35),40.59 (13.50),41.52 (13.31),0.152
+Sex,Total (n=1505),346,1159,<0.001***
+,  Male,160,395,
+,  Female,186,764,
+Ethnicity,Total (n=1504),346,1158,0.694
+,  Afrodescendiente,0,6,
+,  Atacameño,0,6,
+,  Aymara,16,38,
+,  Colla,0,3,
+,  Diaguita,4,14,
+,  Kawésqar,0,2,
+,  Mapuche,43,142,
+,  Quechua,0,2,
+,  Rapa Nui,0,1,
+,  Ninguna,281,937,
+,  Otro,2,7,
+Ancestry AMR,0.43 (0.14),0.43 (0.15),0.43 (0.13),0.335
+Ancestry AFR,0.01 (0.01),0.01 (0.02),0.01 (0.01),0.702
+Population Density,2526.00 (4720.47),2465.14 (4775.64),2544.21 (4705.78),0.992
+Geographic Location,Total (n=1372),327,1045,0.023*
+,  North,88,326,
+,  Center,75,259,
+,  Center South,6,34,
+,  South,68,145,
+,  Austral,90,281,
+Education Level,Total (n=1358),315,1043,0.194
+,  Elementary School or Lower Level,28,93,
+,  High School,84,297,
+,  Professional Technician,51,214,
+,  University,152,439,
+Healthcare System,Total (n=1409),322,1087,0.054
+,  Public,177,665,
+,  Private,145,422,
+Employment Situation,Total (n=1342),313,1029,0.674
+,  Employed,238,780,
+,  Unemployed,13,55,
+,  Idle,62,194,
+,─── Clinical - Lifestyle ───,,,
+Weight,77.53 (16.21),76.88 (16.02),77.74 (16.27),0.359
+Height,164.92 (9.22),166.40 (9.75),164.46 (9.00),<0.001***
+BMI,28.51 (5.32),27.72 (4.83),28.75 (5.44),0.002**
+Blood Group,Total (n=864),211,653,0.957
+,  O,125,380,
+,  A,59,180,
+,  B,21,74,
+,  AB,6,19,
+Rh Group,Total (n=870),212,658,0.675
+,  Rh +,193,607,
+,  Rh -,19,51,
+Tobacco Consumption,Total (n=1480),336,1144,0.245
+,  Yes,157,578,
+,  No,179,566,
+Tobacco Daily Frequency,Total (n=1373),312,1061,0.623
+,  31 or more,1,5,
+,  21 to 30,2,15,
+,  11 to 20,16,40,
+,  1 to 10,63,242,
+,  Less than one,69,240,
+,  Never smoke,161,519,
+Alcohol Consumption,Total (n=1383),315,1068,0.011*
+,  2 or more times a week,29,56,
+,  2-4 times a month,107,316,
+,  Once a month or less,90,375,
+,  Never drinks,89,321,
+,─── COVID-19 ───,,,
+No. Symptoms,10.51 (6.71),7.46 (5.75),11.43 (6.71),<0.001***
+No. Pre-existing diseases,0.88 (1.21),0.56 (0.91),0.97 (1.27),<0.001***
+More than 5 Symptoms,Total (n=1505),346,1159,<0.001***
+,  Yes,203,899,
+,  No,143,260,
+Severe Infection,Total (n=1505),346,1159,<0.001***
+,  Yes,15,143,
+,  No,331,1016,
+Recovered,Total (n=1497),343,1154,<0.001***
+,  Yes,331,746,
+,  No,12,408,
+Health problems that limit daily activities,Total (n=1500),343,1157,0.012*
+,  Yes,0,25,
+,  No,340,1125,
+Need someone to help regularly,Total (n=1500),344,1156,0.010**
+,  Yes,2,39,
+,  No,339,1111,
+Health problems that require to stay at home,Total (n=1501),344,1157,0.020*
+,  Yes,3,40,
+,  No,338,1110,

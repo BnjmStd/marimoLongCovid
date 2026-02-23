@@ -282,6 +282,298 @@ for val, label in HS_LABELS.items():
         n_only(cases,    pl.col(HS_COL) == val),
     )
 
+# ── Employment Situation ───────────────────────────────────────────────────
+EMP_COL = "Situación.ocupacional"
+EMP_LABELS = {"Activo": "Employed", "Cesante": "Unemployed", "Inactivo": "Idle"}
+
+add_row(
+    "Employment Situation",
+    f"Total (n={total_nonull(df, EMP_COL)})",
+    total_nonull(men, EMP_COL),
+    total_nonull(women, EMP_COL),
+    total_nonull(controls, EMP_COL),
+    total_nonull(cases, EMP_COL),
+)
+for val, label in EMP_LABELS.items():
+    add_row(
+        "",
+        f"  {label}",
+        n_only(men,      pl.col(EMP_COL) == val),
+        n_only(women,    pl.col(EMP_COL) == val),
+        n_only(controls, pl.col(EMP_COL) == val),
+        n_only(cases,    pl.col(EMP_COL) == val),
+    )
+
+# ── Bloque: Clinical - Lifestyle ───────────────────────────────────────────
+add_row("", "─── Clinical - Lifestyle ───", "", "", "", "")
+
+# ── Weight ─────────────────────────────────────────────────────────────────
+# peso has invalid entries (0.0 and 1.0) — filter to values > 30 kg
+PESO_VALID = pl.col("peso") > 30
+
+add_row(
+    "Weight",
+    mean_sd(df.filter(PESO_VALID)["peso"]),
+    mean_sd(men.filter(PESO_VALID)["peso"]),
+    mean_sd(women.filter(PESO_VALID)["peso"]),
+    mean_sd(controls.filter(PESO_VALID)["peso"]),
+    mean_sd(cases.filter(PESO_VALID)["peso"]),
+)
+
+# ── Height ─────────────────────────────────────────────────────────────────
+add_row(
+    "Height",
+    mean_sd(df["Altura"].drop_nulls().cast(pl.Float64)),
+    mean_sd(men["Altura"].drop_nulls().cast(pl.Float64)),
+    mean_sd(women["Altura"].drop_nulls().cast(pl.Float64)),
+    mean_sd(controls["Altura"].drop_nulls().cast(pl.Float64)),
+    mean_sd(cases["Altura"].drop_nulls().cast(pl.Float64)),
+)
+
+# ── BMI ────────────────────────────────────────────────────────────────────
+add_row(
+    "BMI",
+    mean_sd(df["IMC"]),
+    mean_sd(men["IMC"]),
+    mean_sd(women["IMC"]),
+    mean_sd(controls["IMC"]),
+    mean_sd(cases["IMC"]),
+)
+
+# ── Tobacco Consumption ────────────────────────────────────────────────────
+TAB_COL = "tabaco"
+
+add_row(
+    "Tobacco Consumption",
+    f"Total (n={total_nonull(df, TAB_COL)})",
+    total_nonull(men, TAB_COL),
+    total_nonull(women, TAB_COL),
+    total_nonull(controls, TAB_COL),
+    total_nonull(cases, TAB_COL),
+)
+for label, val in [("Yes", 1), ("No", 0)]:
+    add_row(
+        "",
+        f"  {label}",
+        n_only(men,      pl.col(TAB_COL) == val),
+        n_only(women,    pl.col(TAB_COL) == val),
+        n_only(controls, pl.col(TAB_COL) == val),
+        n_only(cases,    pl.col(TAB_COL) == val),
+    )
+
+# ── Tobacco Daily Frequency ────────────────────────────────────────────────
+# Source column: "Cigarros.diarios"
+# Ordered high-to-low as in reference table
+CIG_COL = "Cigarros.diarios"
+CIG_LABELS = [
+    ("31 o más",                                         "31 or more"),
+    ("Entre 21 y 30",                                    "21 to 30"),
+    ("Entre 11 y 20",                                    "11 to 20"),
+    ("Entre 1 y 10",                                     "1 to 10"),
+    ("Menos de 1 al día (menos de 7 a la semana)",       "Less than one"),
+    ("0 al día",                                         "Never smoke"),
+]
+
+add_row(
+    "Tobacco Daily Frequency",
+    f"Total (n={total_nonull(df, CIG_COL)})",
+    total_nonull(men, CIG_COL),
+    total_nonull(women, CIG_COL),
+    total_nonull(controls, CIG_COL),
+    total_nonull(cases, CIG_COL),
+)
+for raw_val, label in CIG_LABELS:
+    add_row(
+        "",
+        f"  {label}",
+        n_only(men,      pl.col(CIG_COL) == raw_val),
+        n_only(women,    pl.col(CIG_COL) == raw_val),
+        n_only(controls, pl.col(CIG_COL) == raw_val),
+        n_only(cases,    pl.col(CIG_COL) == raw_val),
+    )
+
+# ── Alcohol Consumption ────────────────────────────────────────────────────
+# Dataset has 5 frequency categories; the two weekly ones are combined
+# into "2 or more times a week" to match the reference table structure.
+ALC_COL = "Consumo.alcohol"
+WEEKLY_VALS = ["Dos o tres veces a la semana", "Cuatro o más veces a la semana"]
+ALC_LABELS = [
+    (WEEKLY_VALS,                   "2 or more times a week"),
+    (["Dos a cuatro veces al mes"], "2-4 times a month"),
+    (["Una vez al mes o menos"],    "Once a month or less"),
+    (["Nunca bebe"],                "Never drinks"),
+]
+
+add_row(
+    "Alcohol Consumption",
+    f"Total (n={total_nonull(df, ALC_COL)})",
+    total_nonull(men, ALC_COL),
+    total_nonull(women, ALC_COL),
+    total_nonull(controls, ALC_COL),
+    total_nonull(cases, ALC_COL),
+)
+for raw_vals, label in ALC_LABELS:
+    add_row(
+        "",
+        f"  {label}",
+        n_only(men,      pl.col(ALC_COL).is_in(raw_vals)),
+        n_only(women,    pl.col(ALC_COL).is_in(raw_vals)),
+        n_only(controls, pl.col(ALC_COL).is_in(raw_vals)),
+        n_only(cases,    pl.col(ALC_COL).is_in(raw_vals)),
+    )
+
+# ── Bloque: COVID-19 ───────────────────────────────────────────────────────
+add_row("", "─── COVID-19 ───", "", "", "", "")
+
+# ── No. Symptoms ──────────────────────────────────────────────────────────
+add_row(
+    "No. Symptoms",
+    mean_sd(df["Total_Sintomas"].cast(pl.Float64)),
+    mean_sd(men["Total_Sintomas"].cast(pl.Float64)),
+    mean_sd(women["Total_Sintomas"].cast(pl.Float64)),
+    mean_sd(controls["Total_Sintomas"].cast(pl.Float64)),
+    mean_sd(cases["Total_Sintomas"].cast(pl.Float64)),
+)
+
+# ── No. Pre-existing diseases ──────────────────────────────────────────────
+add_row(
+    "No. Pre-existing diseases",
+    mean_sd(df["Total_Cond_pre"].cast(pl.Float64)),
+    mean_sd(men["Total_Cond_pre"].cast(pl.Float64)),
+    mean_sd(women["Total_Cond_pre"].cast(pl.Float64)),
+    mean_sd(controls["Total_Cond_pre"].cast(pl.Float64)),
+    mean_sd(cases["Total_Cond_pre"].cast(pl.Float64)),
+)
+
+# ── More than 5 Symptoms ───────────────────────────────────────────────────
+# Mas_de_5: 0=No, 1=Yes — no nulls in dataset
+M5_COL = "Mas_de_5"
+add_row(
+    "More than 5 Symptoms",
+    f"Total (n={total_nonull(df, M5_COL)})",
+    total_nonull(men, M5_COL),
+    total_nonull(women, M5_COL),
+    total_nonull(controls, M5_COL),
+    total_nonull(cases, M5_COL),
+)
+for label, val in [("Yes", 1), ("No", 0)]:
+    add_row(
+        "",
+        f"  {label}",
+        n_only(men,      pl.col(M5_COL) == val),
+        n_only(women,    pl.col(M5_COL) == val),
+        n_only(controls, pl.col(M5_COL) == val),
+        n_only(cases,    pl.col(M5_COL) == val),
+    )
+
+# ── Severe Infection ───────────────────────────────────────────────────────
+# Severo: 0=No, 1=Yes — no nulls in dataset
+SEV_COL = "Severo"
+add_row(
+    "Severe Infection",
+    f"Total (n={total_nonull(df, SEV_COL)})",
+    total_nonull(men, SEV_COL),
+    total_nonull(women, SEV_COL),
+    total_nonull(controls, SEV_COL),
+    total_nonull(cases, SEV_COL),
+)
+for label, val in [("Yes", 1), ("No", 0)]:
+    add_row(
+        "",
+        f"  {label}",
+        n_only(men,      pl.col(SEV_COL) == val),
+        n_only(women,    pl.col(SEV_COL) == val),
+        n_only(controls, pl.col(SEV_COL) == val),
+        n_only(cases,    pl.col(SEV_COL) == val),
+    )
+
+# ── Recovered ─────────────────────────────────────────────────────────────
+# recuperado_3m: 1=Yes, 2=No; 8 nulls
+REC_COL = "recuperado_3m"
+add_row(
+    "Recovered",
+    f"Total (n={total_nonull(df, REC_COL)})",
+    total_nonull(men, REC_COL),
+    total_nonull(women, REC_COL),
+    total_nonull(controls, REC_COL),
+    total_nonull(cases, REC_COL),
+)
+for label, val in [("Yes", 1), ("No", 2)]:
+    add_row(
+        "",
+        f"  {label}",
+        n_only(men,      pl.col(REC_COL) == val),
+        n_only(women,    pl.col(REC_COL) == val),
+        n_only(controls, pl.col(REC_COL) == val),
+        n_only(cases,    pl.col(REC_COL) == val),
+    )
+
+# ── Health problems that limit daily activities ────────────────────────────
+# problemas_3m: 1=Yes, 2=No, 3=NS/NR (treated as neither Yes nor No, but
+# counted in Total). 5 nulls.
+PROB_COL = "problemas_3m"
+add_row(
+    "Health problems that limit daily activities",
+    f"Total (n={total_nonull(df, PROB_COL)})",
+    total_nonull(men, PROB_COL),
+    total_nonull(women, PROB_COL),
+    total_nonull(controls, PROB_COL),
+    total_nonull(cases, PROB_COL),
+)
+for label, val in [("Yes", 1), ("No", 2)]:
+    add_row(
+        "",
+        f"  {label}",
+        n_only(men,      pl.col(PROB_COL) == val),
+        n_only(women,    pl.col(PROB_COL) == val),
+        n_only(controls, pl.col(PROB_COL) == val),
+        n_only(cases,    pl.col(PROB_COL) == val),
+    )
+
+# ── Need someone to help regularly ────────────────────────────────────────
+# ayuda_3m: 1=Yes, 2=No, 3=NS/NR (treated as neither, counted in Total).
+# 5 nulls.
+AYU_COL = "ayuda_3m"
+add_row(
+    "Need someone to help regularly",
+    f"Total (n={total_nonull(df, AYU_COL)})",
+    total_nonull(men, AYU_COL),
+    total_nonull(women, AYU_COL),
+    total_nonull(controls, AYU_COL),
+    total_nonull(cases, AYU_COL),
+)
+for label, val in [("Yes", 1), ("No", 2)]:
+    add_row(
+        "",
+        f"  {label}",
+        n_only(men,      pl.col(AYU_COL) == val),
+        n_only(women,    pl.col(AYU_COL) == val),
+        n_only(controls, pl.col(AYU_COL) == val),
+        n_only(cases,    pl.col(AYU_COL) == val),
+    )
+
+# ── Health problems that require to stay at home ───────────────────────────
+# casa_3m: 1=Yes, 2=No, 3=NS/NR (treated as neither, counted in Total).
+# 4 nulls.
+CASA_COL = "casa_3m"
+add_row(
+    "Health problems that require to stay at home",
+    f"Total (n={total_nonull(df, CASA_COL)})",
+    total_nonull(men, CASA_COL),
+    total_nonull(women, CASA_COL),
+    total_nonull(controls, CASA_COL),
+    total_nonull(cases, CASA_COL),
+)
+for label, val in [("Yes", 1), ("No", 2)]:
+    add_row(
+        "",
+        f"  {label}",
+        n_only(men,      pl.col(CASA_COL) == val),
+        n_only(women,    pl.col(CASA_COL) == val),
+        n_only(controls, pl.col(CASA_COL) == val),
+        n_only(cases,    pl.col(CASA_COL) == val),
+    )
+
 # ─────────────────────────────────────────────
 # 5. CONSTRUIR DATAFRAME FINAL
 # ─────────────────────────────────────────────
