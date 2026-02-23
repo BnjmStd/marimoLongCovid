@@ -180,12 +180,15 @@ for eth in ordered_eth:
 df_amr       = df.with_columns((pl.col("AYM") + pl.col("MAP")).alias("AMR"))
 controls_amr = controls.with_columns((pl.col("AYM") + pl.col("MAP")).alias("AMR"))
 cases_amr    = cases.with_columns((pl.col("AYM") + pl.col("MAP")).alias("AMR"))
+_amr_ctrl = controls_amr["AMR"].drop_nulls().cast(pl.Float64).to_numpy()
+_amr_case = cases_amr["AMR"].drop_nulls().cast(pl.Float64).to_numpy()
+_p_amr = fmt_p(float(stats.mannwhitneyu(_amr_ctrl, _amr_case, alternative="two-sided").pvalue))
 add_row(
     "Ancestry AMR",
     mean_sd(df_amr["AMR"]),
     mean_sd(controls_amr["AMR"]),
     mean_sd(cases_amr["AMR"]),
-    pval_continuous("AYM"),  # proxy; se usa AYM como variable base
+    _p_amr,
 )
 
 # ── Ancestry AFR ──────────────────────────────────────────────────────────

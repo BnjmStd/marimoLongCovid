@@ -1,0 +1,87 @@
+╔══════════════════════════════════════════════════════════════════╗
+║        ¿Qué es el p-value y por qué estaba malo?                ║
+╚══════════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. ¿Qué es el p-value?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+El p-value es un número entre 0 y 1 que mide si una diferencia
+que observas en tus datos es real o simplemente casualidad.
+
+La lógica es sencilla:
+  - p < 0.05  → la diferencia es estadísticamente significativa
+                 (es raro que sea por azar → le crees al resultado)
+  - p ≥ 0.05  → no hay diferencia significativa
+                 (podría ser por azar → no puedes concluir nada)
+
+En la Tabla 2, el p-value para cada variable responde a:
+  ¿Los Controles y los Casos (Long COVID) son distintos 
+  en esta característica?
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. ¿Qué es "Ancestry AMR"?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Cada participante tiene proporciones de ancestría genética:
+
+  EUR = Europeo
+  EAS = Este Asiático  
+  AFR = Africano
+  AYM = Aymara          ← ancestría amerindia del norte
+  MAP = Mapuche          ← ancestría amerindia del sur
+
+"Ancestry AMR" representa la ANCESTRÍA AMERICANA TOTAL de la persona,
+que es la suma de las dos componentes amerindias:
+
+  AMR = AYM + MAP
+
+Por ejemplo, si alguien tiene AYM=0.10 y MAP=0.35, su AMR = 0.45
+(45% de ancestría americana).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. ¿Por qué el p-value estaba MALO antes?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+En el código había este error:
+
+  ❌ ANTES (incorrecto):
+     La tabla mostraba los promedios de AMR = AYM + MAP
+     PERO calculaba el p-value solo usando AYM.
+
+  Esto es inconsistente: estás mostrando una columna (AMR)
+  pero haciendo el test estadístico sobre otra columna (AYM).
+
+  Es como si mostraras el promedio de talla + peso combinados,
+  pero calculases si hay diferencia entre grupos usando
+  solo el peso. El número resultante no corresponde a lo
+  que estás describiendo en la tabla.
+
+  El p-value que salía era:  0.335
+  (comparando Controls vs Cases en AYM solo)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. ¿Por qué ahora está BIEN?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ✅ AHORA (correcto):
+     Se calcula primero AMR = AYM + MAP para cada persona,
+     y LUEGO se hace el test estadístico usando AMR.
+
+  Ahora la variable que describes en la tabla y la variable
+  que testeas son la MISMA.
+
+  El p-value correcto es: 0.420
+  (comparando Controls vs Cases en AMR = AYM + MAP)
+
+  Interpretación: p = 0.420 > 0.05
+  → No hay diferencia significativa en ancestría americana
+    entre los controles y los casos de Long COVID.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. Resumen en una frase
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Antes se comparaba mitad de la variable (AYM),
+  ahora se compara la variable completa (AYM + MAP = AMR).
+  Por eso el p-value era incorrecto.
