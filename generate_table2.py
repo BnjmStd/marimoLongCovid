@@ -200,6 +200,33 @@ add_row(
     pval_continuous("AFR"),
 )
 
+# ── Ancestry EUR ──────────────────────────────────────────────────────────
+add_row(
+    "Ancestry EUR",
+    mean_sd(df["EUR"], decimals=2),
+    mean_sd(controls["EUR"], decimals=2),
+    mean_sd(cases["EUR"], decimals=2),
+    pval_continuous("EUR"),
+)
+
+# ── Ancestry MAP ──────────────────────────────────────────────────────────
+add_row(
+    "Ancestry MAP",
+    mean_sd(df["MAP"], decimals=2),
+    mean_sd(controls["MAP"], decimals=2),
+    mean_sd(cases["MAP"], decimals=2),
+    pval_continuous("MAP"),
+)
+
+# ── Ancestry AYM ──────────────────────────────────────────────────────────
+add_row(
+    "Ancestry AYM",
+    mean_sd(df["AYM"], decimals=2),
+    mean_sd(controls["AYM"], decimals=2),
+    mean_sd(cases["AYM"], decimals=2),
+    pval_continuous("AYM"),
+)
+
 # ── Population Density ────────────────────────────────────────────────────
 add_row(
     "Population Density",
