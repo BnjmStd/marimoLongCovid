@@ -46,7 +46,10 @@ from .visualizations import (
     plot_linaje_barplot,
     plot_hospitalizacion_by_week,
     plot_demographic_clinical_heatmap,
-    create_table1_stratified
+    create_table1_stratified,
+    plot_criterios_hospitalizacion_heatmap,
+    plot_criterios_hospitalizacion_heatmap_opcionA,
+    plot_criterios_hospitalizacion_heatmap_opcionB
 )
 
 __all__ = [
@@ -92,5 +95,8 @@ __all__ = [
     'plot_linaje_barplot',
     'plot_hospitalizacion_by_week',
     'plot_demographic_clinical_heatmap',
-    'create_table1_stratified'
+    'create_table1_stratified',
+    'plot_criterios_hospitalizacion_heatmap',
+    'plot_criterios_hospitalizacion_heatmap_opcionA',
+    'plot_criterios_hospitalizacion_heatmap_opcionB'
 ]

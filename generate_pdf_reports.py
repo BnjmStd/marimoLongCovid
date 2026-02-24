@@ -49,7 +49,10 @@ from modules import (
     plot_cases_by_week_by_criterio_3_sin_nulls,
     plot_linaje_barplot,
     plot_hospitalizacion_by_week,
-    create_table1_stratified
+    create_table1_stratified,
+    plot_criterios_hospitalizacion_heatmap,
+    plot_criterios_hospitalizacion_heatmap_opcionA,
+    plot_criterios_hospitalizacion_heatmap_opcionB
 )
 
 # Crear directorio de salida
@@ -70,17 +73,17 @@ def clean_filename(title: str) -> str:
     return cleaned[:100]  # Limitar longitud
 
 
-def save_plotly_figure_as_image(fig, filename: str) -> str:
+def save_plotly_figure_as_image(fig, filename: str, width: int = 1200, height: int = 800) -> str:
     """Guarda una figura de plotly como imagen PNG"""
     img_path = IMG_DIR / f"{filename}.png"
     try:
         # Intentar con kaleido primero
-        fig.write_image(str(img_path), width=1200, height=800)
+        fig.write_image(str(img_path), width=width, height=height)
     except Exception as e:
         print(f"   ⚠️  No se pudo usar kaleido, intentando con orca: {e}")
         try:
             import plotly.io as pio
-            pio.write_image(fig, str(img_path), format='png', width=1200, height=800)
+            pio.write_image(fig, str(img_path), format='png', width=width, height=height)
         except Exception as e2:
             print(f"   ❌ Error guardando imagen: {e2}")
             return None
@@ -895,8 +898,130 @@ Eje Y: Hospitalización, Severidad, Condiciones preexistentes
         """
     })
 
+    # HEATMAP CRITERIOS POR HOSPITALIZACIÓN Y SEXO
+    reports.append({
+        'function': plot_criterios_hospitalizacion_heatmap,
+        'args': (df_con_criterios,),
+        'title': 'Heatmap Criterios Long COVID por Hospitalizacion y Sexo',
+        'img_width': 1800,
+        'img_height': 600,
+        'interpretation': """
+**Heatmap de pacientes individuales ordenados por hospitalización**
 
-    
+**Estructura:**
+- Eje X: Cada paciente (1,505 total), primero hospitalizados (223) luego no hospitalizados (1,273)
+- Eje Y: 8 filas — criterios 1 a 4 divididos por sexo (H = Hombre, M = Mujer)
+- Línea vertical negra separa hospitalizados del resto
+
+**Codificación de colores:**
+- Azul oscuro: Paciente CUMPLE el criterio Long COVID
+- Rosa claro: Paciente NO cumple el criterio
+- Gris: Sexo no aplica para esa fila
+
+**Hallazgos clave:**
+- Criterio 1 (Long COVID general): Mayor densidad azul — criterio más permisivo
+- Criterio 2 (síntomas recurrentes): Concentración notable en hospitalizados
+- Criterio 3 (clusters): Patrón restrictivo visible en hospitalizados
+- Criterio 4 (secuelas): Distribución heterogénea entre ambos grupos
+- Los hospitalizados tienden a cumplir más criterios simultáneamente
+
+**Implicaciones:**
+- Permite identificar patrones de co-ocurrencia de criterios
+- Diferencias por sexo visibles en densidad de celdas por criterio
+- Herramienta de clasificación visual para fenotipado de Long COVID
+        """
+    })
+
+    # HEATMAP CRITERIOS POR HOSPITALIZACIÓN Y SEXO (SIN NULLS)
+    reports.append({
+        'function': plot_criterios_hospitalizacion_heatmap,
+        'args': (df_con_criterios,),
+        'kwargs': {'exclude_hosp_null': True},
+        'title': 'Heatmap Criterios Long COVID sin Nulls de Hospitalizacion',
+        'img_width': 1800,
+        'img_height': 600,
+        'interpretation': """
+**Heatmap de pacientes individuales — SIN los 9 casos con hospitalización desconocida**
+
+**Diferenciándose de la versión completa:**
+- Se excluyen los 9 pacientes sin información de hospitalización (NULL)
+- Total analizado: 1,496 pacientes (1,505 totales − 9 nulls)
+- Hospitalizados: 223 | No hospitalizados: 1,273
+
+**Estructura:**
+- Eje X: Pacientes ordenados por clustering jerárquico dentro de cada grupo
+- Eje Y: 8 filas — criterios 1 a 4 divididos por sexo (H = Hombre, M = Mujer)
+- Línea vertical negra separa las dos cohortes exactamente
+
+**Codificación de colores:**
+- Azul oscuro (#2C3E7A): Paciente CUMPLE el criterio Long COVID
+- Rosa claro (#F4C2C2): Paciente NO cumple el criterio
+- Blanco: Sexo no aplica para esa fila (H vs M)
+
+**Ventaja de excluir nulls:**
+- Cada paciente visible tiene estado de hospitalización confirmado
+- El divisor visual separa grupos completos y definidos
+- Más riguroso para análisis comparativos entre hospitalizados y no hospitalizados
+- Elimina ambigüedad diagnóstica en la interpretación del gráfico
+        """
+    })
+
+
+    # HEATMAP OPCION A - GAPS GRIS
+    reports.append({
+        'function': plot_criterios_hospitalizacion_heatmap_opcionA,
+        'args': (df_con_criterios,),
+        'title': 'Heatmap Opcion A - Criterios con Gaps Gris',
+        'img_width': 1800,
+        'img_height': 600,
+        'interpretation': """
+**Heatmap Opción A: Mismas 8 filas pero con gaps en gris (#EFEFEF)**
+
+**Diferencia respecto al heatmap base:**
+- Las celdas "sexo no aplica" aparecen en gris claro en lugar de blanco
+- Esto hace explícito que no es un dato faltante sino una exclusión deliberada por sexo
+
+**Estructura:**
+- Eje X: Pacientes (excluidos los 9 con hospitalización null)
+- Eje Y: 8 filas — criterios 1 a 4, cada uno con H (Hombre) y M (Mujer)
+- Azul oscuro = cumple criterio | Rosa claro = no cumple | Gris = sexo no aplica
+
+**Ventaja visual:**
+- El gris distingue claramente "sin dato" de "dato negativo"
+- Facilita la lectura visual sin confundir ausencia con incumplimiento
+- Más honesto epistemológicamente para presentaciones clínicas
+        """
+    })
+
+    # HEATMAP OPCION B - 4 CRITERIOS CON TIRA DE SEXO
+    reports.append({
+        'function': plot_criterios_hospitalizacion_heatmap_opcionB,
+        'args': (df_con_criterios,),
+        'title': 'Heatmap Opcion B - 4 Criterios con Tira de Sexo',
+        'img_width': 1800,
+        'img_height': 600,
+        'interpretation': """
+**Heatmap Opción B: 4 filas (un criterio por fila) + tira superior de sexo**
+
+**Diseño diferenciado:**
+- Subgráfico superior (7% altura): tira de sexo por paciente
+  - Azul = Hombre | Rojo = Mujer
+- Subgráfico principal (93% altura): 4 filas de criterios (C1–C4)
+  - Sin division por sexo — cada celda aplica a todos los pacientes
+  - Sin gaps: no hay filas de sexo no aplicable
+
+**Ventajas:**
+- Vista más compacta y limpia — sin celdas vacías
+- La tira de sexo permite igualmente contextualizar por género
+- Los 4 criterios tienen el mismo peso visual
+- Más adecuado para comparar densidad de criterios entre grupos
+
+**Codificación:**
+- Azul oscuro (#2C3E7A): Cumple criterio | Rosa claro (#F4C2C2): No cumple
+- Tira: Azul (#2980b9) = Hombre | Rojo (#e74c3c) = Mujer
+        """
+    })
+
     print(f"\n📝 Generando {len(reports)} reportes PDF...")
     print("-"*70)
     
@@ -907,7 +1032,7 @@ Eje Y: Hospitalización, Severidad, Condiciones preexistentes
         try:
             # Generar figura
             print("   🎨 Generando gráfico/tabla...")
-            fig = report['function'](*report['args'])
+            fig = report['function'](*report['args'], **report.get('kwargs', {}))
             
             # Detectar si es una tabla (go.Table) o un gráfico normal
             is_table = False
@@ -932,7 +1057,9 @@ Eje Y: Hospitalización, Severidad, Condiciones preexistentes
                 # Es un gráfico - usar PNG como antes
                 print("   💾 Guardando imagen temporal...")
                 img_filename = clean_filename(report['title'])
-                img_path = save_plotly_figure_as_image(fig, img_filename)
+                img_w = report.get('img_width', 1200)
+                img_h = report.get('img_height', 800)
+                img_path = save_plotly_figure_as_image(fig, img_filename, width=img_w, height=img_h)
                 
                 if img_path is None:
                     print("   ⚠️  Saltando (no se pudo generar imagen)")

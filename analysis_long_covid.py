@@ -42,6 +42,7 @@ def _():
         plot_linaje_barplot,
         plot_hospitalizacion_by_week,
         create_table1_stratified,
+        plot_criterios_hospitalizacion_heatmap,
     )
     return (
         create_criterio_variables,
@@ -67,11 +68,33 @@ def _():
         plot_criterio3_clusters_comparison,
         plot_criterio_barplot,
         plot_criterio_comparison,
+        plot_criterios_hospitalizacion_heatmap,
         plot_dataset_overview,
         plot_longcovid_by_week,
         plot_secuelas_by_week,
         plot_sintomas_recurrentes_by_week,
     )
+
+
+@app.cell
+def _(mo):
+    mo.md("""
+    ---
+    ## Heatmap Criterios Long COVID por Hospitalización y Sexo
+
+    Este heatmap muestra todos los pacientes en el eje X, ordenados por estado de hospitalización
+    (primero hospitalizados, luego no hospitalizados). En el eje Y aparecen los 4 criterios Long COVID
+    separados por sexo (H = hombre, M = mujer). El color indica si el paciente cumple (azul oscuro)
+    o no cumple (rosa claro) cada criterio. Las celdas grises corresponden al sexo que no aplica en esa fila.
+    """)
+    return
+
+
+@app.cell
+def _(df_con_criterios, plot_criterios_hospitalizacion_heatmap):
+    fig_hosp_heatmap = plot_criterios_hospitalizacion_heatmap(df_con_criterios)
+    fig_hosp_heatmap
+    return (fig_hosp_heatmap,)
 
 
 @app.cell

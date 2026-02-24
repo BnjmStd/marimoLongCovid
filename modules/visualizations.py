@@ -2681,3 +2681,655 @@ def plot_demographic_clinical_heatmap(df: pl.DataFrame) -> go.Figure:
     
     return fig
 
+
+def plot_criterios_hospitalizacion_heatmap(
+    df: pl.DataFrame,
+    exclude_hosp_null: bool = False,
+) -> go.Figure:
+    """
+    Heatmap de pacientes ordenados por hospitalización vs criterios Long COVID por sexo.
+
+    Ejes:
+    - X: cada paciente (columna), ordenados hospitalizados primero luego no hospitalizados
+    - Y: 8 filas → [Criterio 1 H, Criterio 1 M, Criterio 2 H, Criterio 2 M,
+                     Criterio 3 H, Criterio 3 M, Criterio 4 H, Criterio 4 M]
+
+    Colores:
+    -  1  (dark navy)  = cumple el criterio
+    -  0  (light rose) = no cumple el criterio
+    - None (blanco)    = sexo no corresponde a la fila
+
+    Args:
+        df: DataFrame con columnas criterio_1..4, sexo, Hospitalización
+        exclude_hosp_null: Si True, excluye los 9 pacientes con
+                           Hospitalización = NULL antes de construir el heatmap.
+
+    Returns:
+        go.Figure con el heatmap
+    """
+
+    # ── 1. Preparar columna hospitalización numérica ─────────────────────────
+    # Column may be Int64 (0/1/null) or String ("0"/"1"/"NA") depending on how it was loaded
+    hosp_col = df["Hospitalización"]
+    if hosp_col.dtype == pl.Utf8 or hosp_col.dtype == pl.String:
+        df_h = df.with_columns(
+            pl.when(pl.col("Hospitalización") == "1")
+            .then(1)
+            .when(pl.col("Hospitalización") == "0")
+            .then(0)
+            .otherwise(pl.lit(None))
+            .cast(pl.Int32)
+            .alias("_hosp_num")
+        )
+    else:
+        df_h = df.with_columns(
+            pl.when(pl.col("Hospitalización") == 1)
+            .then(1)
+            .when(pl.col("Hospitalización") == 0)
+            .then(0)
+            .otherwise(pl.lit(None))
+            .cast(pl.Int32)
+            .alias("_hosp_num")
+        )
+
+    # ── Opcional: excluir nulls de hospitalización ──────────────────────────
+    if exclude_hosp_null:
+        df_h = df_h.filter(~pl.col("_hosp_num").is_null())
+
+    # ── 2. Clustering jerárquico dentro de cada grupo ───────────────────────
+    # Agrupa pacientes por similitud en su patrón de 4 criterios binarios
+    # (ward linkage sobre distancia euclidiana). Dentro de cada grupo
+    # (hospitalizados / no hospitalizados) los pacientes con patrones
+    # similares quedan adyacentes, haciendo bloques visuales claros.
+    import numpy as np
+    from scipy.cluster.hierarchy import linkage, leaves_list
+
+    crit_cols = ["criterio_1", "criterio_2", "criterio_3", "criterio_4"]
+
+    def cluster_order(sub_df: pl.DataFrame) -> list:
+        """Devuelve los índices originales reordenados por clustering jerárquico."""
+        if sub_df.height < 2:
+            return list(range(sub_df.height))
+        mat = sub_df.select(crit_cols).to_numpy().astype(float)
+        # Si todas las filas son idénticas no hay qué clusterizar
+        if np.all(mat == mat[0]):
+            return list(range(sub_df.height))
+        Z = linkage(mat, method="ward", metric="euclidean")
+        return leaves_list(Z).tolist()
+
+    df_hosp   = df_h.filter(pl.col("_hosp_num") == 1)
+    df_no_hosp = df_h.filter(pl.col("_hosp_num") == 0)
+    df_null   = df_h.filter(pl.col("_hosp_num").is_null())
+
+    ord_hosp    = cluster_order(df_hosp)
+    ord_no_hosp = cluster_order(df_no_hosp)
+
+    df_sorted = pl.concat([
+        df_hosp[ord_hosp],
+        df_no_hosp[ord_no_hosp],
+    ] + ([] if exclude_hosp_null else [df_null]))
+
+    n_patients = df_sorted.height
+    n_hosp     = df_hosp.height
+    n_no_hosp  = df_no_hosp.height
+
+    # ── 3. Construir la matriz Z (8 filas × n_patients columnas) ─────────────
+    criterios = [1, 2, 3, 4]
+    sexos = [1, 2]          # 1 = Hombre (H), 2 = Mujer (M)
+    sex_label = {1: "H", 2: "M"}
+
+    criterio_colors = {
+        1: "#3498db",  # blue
+        2: "#e74c3c",  # red
+        3: "#f39c12",  # orange
+        4: "#9b59b6",  # purple
+    }
+
+    sexo_arr = df_sorted["sexo"].to_numpy()
+
+    y_labels = []
+    z_matrix = []
+    row_meta = []   # (criterio_num, sexo_num) per row
+
+    for crit in criterios:
+        col = f"criterio_{crit}"
+        crit_arr = df_sorted[col].to_numpy()
+        for sx in sexos:
+            row = []
+            for i in range(n_patients):
+                if sexo_arr[i] == sx:
+                    row.append(int(crit_arr[i]))   # 0 or 1
+                else:
+                    row.append(None)               # sexo no aplica → blanco
+            z_matrix.append(row)
+            y_labels.append(f"C{crit} · {sex_label[sx]}")
+            row_meta.append((crit, sx))
+
+    # ── 4. Colorscale: 0=rosa claro, 1=navy ─────────────────────────────────
+    # None → transparente (blanco) — plotly omite estas celdas
+    colorscale = [
+        [0.0, "#F4C2C2"],   # 0 → light rose  (no cumple)
+        [0.5, "#F4C2C2"],
+        [0.5, "#2C3E7A"],   # 1 → dark navy   (cumple)
+        [1.0, "#2C3E7A"],
+    ]
+
+    # ── 5. Hover text ────────────────────────────────────────────────────────
+    hosp_arr = df_sorted["_hosp_num"].to_numpy()
+    # Recalcular suma de criterios sobre el df ya reordenado
+    sum_arr = (
+        df_sorted["criterio_1"].cast(pl.Int32) +
+        df_sorted["criterio_2"].cast(pl.Int32) +
+        df_sorted["criterio_3"].cast(pl.Int32) +
+        df_sorted["criterio_4"].cast(pl.Int32)
+    ).to_numpy()
+    sexo_label_arr = ["H" if s == 1 else "M" for s in df_sorted["sexo"].to_list()]
+    hover = []
+    for row_idx, (crit, sx) in enumerate(row_meta):
+        row_hover = []
+        for i in range(n_patients):
+            if sexo_arr[i] == sx:
+                val = z_matrix[row_idx][i]
+                hosp_str = "Hospitalizado" if hosp_arr[i] == 1 else ("No hospitalizado" if hosp_arr[i] == 0 else "Desconocido")
+                row_hover.append(
+                    f"Paciente {i+1}<br>Sexo: {sexo_label_arr[i]}<br>"
+                    f"{hosp_str}<br>"
+                    f"Criterios cumplidos: {int(sum_arr[i])}/4<br>"
+                    f"Criterio {crit}: {'<b>Cumple</b>' if val == 1 else 'No cumple'}"
+                )
+            else:
+                row_hover.append("")
+        hover.append(row_hover)
+
+    # ── 6. Figure ────────────────────────────────────────────────────────────
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=z_matrix,
+            zmin=0,
+            zmax=1,
+            colorscale=colorscale,
+            showscale=False,
+            hoverongaps=True,   # True → None gaps quedan blancos/transparentes
+            hoverinfo="text",
+            text=hover,
+            xgap=0.3,
+            ygap=1.5,
+        )
+    )
+
+    # ── 7. Divisor vertical entre hospitalizados / no hospitalizados ─────────
+    if n_hosp > 0 and n_no_hosp > 0:
+        fig.add_vline(
+            x=n_hosp - 0.5,
+            line_width=2,
+            line_dash="solid",
+            line_color="#333333",
+        )
+
+    # ── 8. Divisores horizontales entre criterios ───────────────────────────
+    for i in range(1, 4):
+        fig.add_hline(
+            y=i * 2 - 0.5,     # between C_i and C_{i+1}
+            line_width=1.5,
+            line_dash="solid",
+            line_color="#555555",
+        )
+
+    # ── 9. Annotations: criterio labels on the left + sex labels ────────────
+    criterio_names = {1: "Criterio 1", 2: "Criterio 2", 3: "Criterio 3", 4: "Criterio 4"}
+    sex_colors = {1: "#e74c3c", 2: "#3498db"}   # H=red (M=blue) as in image
+
+    for row_idx, (crit, sx) in enumerate(row_meta):
+        # Sex label (H / M) inside the heatmap left edge
+        fig.add_annotation(
+            x=-0.005,
+            y=row_idx,
+            xref="paper",
+            yref="y",
+            text=f"<b>{sex_label[sx]}</b>",
+            showarrow=False,
+            xanchor="right",
+            font=dict(
+                color="white",
+                size=10,
+                family="Arial",
+            ),
+            bgcolor=sex_colors[sx],
+            borderpad=2,
+        )
+
+    # Criterio side-labels (one per two rows)
+    for crit_idx, crit in enumerate(criterios):
+        mid_row = crit_idx * 2 + 0.5   # midpoint between H and M rows
+        fig.add_annotation(
+            x=-0.04,
+            y=mid_row,
+            xref="paper",
+            yref="y",
+            text=f"<b>{criterio_names[crit]}</b>",
+            showarrow=False,
+            xanchor="center",
+            textangle=-90,
+            font=dict(
+                color="white",
+                size=10,
+                family="Arial",
+            ),
+            bgcolor=criterio_colors[crit],
+            borderpad=3,
+        )
+
+    # ── 10. X-axis annotations: "Hospitalizados" / "No hospitalizados" ──────
+    mid_hosp = n_hosp / 2 - 0.5
+    mid_no_hosp = n_hosp + n_no_hosp / 2 - 0.5
+
+    fig.add_annotation(
+        x=mid_hosp,
+        y=-0.9,
+        xref="x",
+        yref="paper",
+        text="<b>Hospitalizados</b>",
+        showarrow=False,
+        yanchor="top",
+        font=dict(size=11, color="#2C3E7A"),
+        bgcolor="#F4C2C2",
+        borderpad=3,
+    )
+    fig.add_annotation(
+        x=mid_no_hosp,
+        y=-0.9,
+        xref="x",
+        yref="paper",
+        text="<b>No hospitalizados</b>",
+        showarrow=False,
+        yanchor="top",
+        font=dict(size=11, color="#2C3E7A"),
+        bgcolor="#DCDCDC",
+        borderpad=3,
+    )
+
+    # ── 11. Manual legend ───────────────────────────────────────────────────
+    for val, color, label in [
+        (1, "#2C3E7A", "Hospitalizados"),
+        (0, "#F4C2C2", "No hospitalizados"),
+    ]:
+        fig.add_trace(
+            go.Scatter(
+                x=[None], y=[None],
+                mode="markers",
+                marker=dict(size=12, color=color, symbol="square"),
+                name=label,
+                showlegend=True,
+            )
+        )
+
+    # ── 12. Layout ──────────────────────────────────────────────────────────
+    _title_suffix = " (sin nulls de hospitalización)" if exclude_hosp_null else ""
+    fig.update_layout(
+        title=dict(
+            text=f"Heatmap Criterios Long COVID — Ordenado por Hospitalización y Clustering{_title_suffix}",
+            font=dict(size=14),
+        ),
+        xaxis=dict(
+            title="Pacientes",
+            showticklabels=False,
+            showgrid=False,
+            zeroline=False,
+        ),
+        yaxis=dict(
+            tickvals=list(range(len(y_labels))),
+            ticktext=y_labels,
+            showgrid=False,
+            autorange="reversed",
+        ),
+        template="plotly_white",
+        height=400,
+        width=1100,
+        margin=dict(l=130, r=40, t=60, b=80),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.25,
+            xanchor="center",
+            x=0.5,
+        ),
+        plot_bgcolor="white",
+    )
+
+    return fig
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OPCIÓN A: igual que la función original pero los gaps de sexo aparecen en
+# gris muy claro (#EFEFEF) en lugar de blanco, gracias a plot_bgcolor.
+# Mantiene las 8 filas (Criterio × Sexo).
+# ─────────────────────────────────────────────────────────────────────────────
+def plot_criterios_hospitalizacion_heatmap_opcionA(
+    df: pl.DataFrame,
+    exclude_hosp_null: bool = True,
+) -> go.Figure:
+    """
+    Opción A: igual que plot_criterios_hospitalizacion_heatmap pero los gaps
+    (celdas de sexo no coincidente) se muestran en gris claro (#EFEFEF).
+    """
+    import numpy as np
+    from scipy.cluster.hierarchy import linkage, leaves_list
+
+    # ── preparar hosp_num ────────────────────────────────────────────────────
+    hosp_col = df["Hospitalización"]
+    if hosp_col.dtype in (pl.Utf8, pl.String):
+        df_h = df.with_columns(
+            pl.when(pl.col("Hospitalización") == "1").then(1)
+            .when(pl.col("Hospitalización") == "0").then(0)
+            .otherwise(pl.lit(None)).cast(pl.Int32).alias("_hosp_num")
+        )
+    else:
+        df_h = df.with_columns(
+            pl.when(pl.col("Hospitalización") == 1).then(1)
+            .when(pl.col("Hospitalización") == 0).then(0)
+            .otherwise(pl.lit(None)).cast(pl.Int32).alias("_hosp_num")
+        )
+    if exclude_hosp_null:
+        df_h = df_h.filter(~pl.col("_hosp_num").is_null())
+
+    # ── clustering ───────────────────────────────────────────────────────────
+    crit_cols = ["criterio_1", "criterio_2", "criterio_3", "criterio_4"]
+
+    def _cluster(sub: pl.DataFrame) -> list:
+        if sub.height < 2:
+            return list(range(sub.height))
+        mat = sub.select(crit_cols).to_numpy().astype(float)
+        if np.all(mat == mat[0]):
+            return list(range(sub.height))
+        return leaves_list(linkage(mat, method="ward")).tolist()
+
+    df_hosp    = df_h.filter(pl.col("_hosp_num") == 1)
+    df_no_hosp = df_h.filter(pl.col("_hosp_num") == 0)
+    df_sorted  = pl.concat([df_hosp[_cluster(df_hosp)],
+                             df_no_hosp[_cluster(df_no_hosp)]])
+
+    n_patients = df_sorted.height
+    n_hosp     = df_hosp.height
+    n_no_hosp  = df_no_hosp.height
+
+    criterios = [1, 2, 3, 4]
+    sex_label  = {1: "H", 2: "M"}
+    sex_colors = {1: "#e74c3c", 2: "#3498db"}
+    criterio_colors = {1: "#3498db", 2: "#e74c3c", 3: "#f39c12", 4: "#9b59b6"}
+
+    sexo_arr = df_sorted["sexo"].to_numpy()
+
+    # ── matriz: None para sexo no aplica ────────────────────────────────────
+    y_labels, z_matrix, row_meta = [], [], []
+    for crit in criterios:
+        crit_arr = df_sorted[f"criterio_{crit}"].to_numpy()
+        for sx in [1, 2]:
+            row = [int(crit_arr[i]) if sexo_arr[i] == sx else None
+                   for i in range(n_patients)]
+            z_matrix.append(row)
+            y_labels.append(f"C{crit} · {sex_label[sx]}")
+            row_meta.append((crit, sx))
+
+    colorscale = [
+        [0.0, "#F4C2C2"], [0.5, "#F4C2C2"],
+        [0.5, "#2C3E7A"], [1.0, "#2C3E7A"],
+    ]
+
+    # ── hover ────────────────────────────────────────────────────────────────
+    hosp_arr = df_sorted["_hosp_num"].to_numpy()
+    sum_arr  = (df_sorted["criterio_1"].cast(pl.Int32) +
+                df_sorted["criterio_2"].cast(pl.Int32) +
+                df_sorted["criterio_3"].cast(pl.Int32) +
+                df_sorted["criterio_4"].cast(pl.Int32)).to_numpy()
+    sex_str  = ["H" if s == 1 else "M" for s in df_sorted["sexo"].to_list()]
+    hover = []
+    for row_idx, (crit, sx) in enumerate(row_meta):
+        rh = []
+        for i in range(n_patients):
+            if sexo_arr[i] == sx:
+                v = z_matrix[row_idx][i]
+                hs = "Hospitalizado" if hosp_arr[i] == 1 else "No hospitalizado"
+                rh.append(f"Paciente {i+1}<br>Sexo: {sex_str[i]}<br>{hs}<br>"
+                           f"Criterios: {int(sum_arr[i])}/4<br>"
+                           f"C{crit}: {'<b>Cumple</b>' if v else 'No cumple'}")
+            else:
+                rh.append("")
+        hover.append(rh)
+
+    # ── figura ───────────────────────────────────────────────────────────────
+    fig = go.Figure(go.Heatmap(
+        z=z_matrix, zmin=0, zmax=1,
+        colorscale=colorscale, showscale=False,
+        hoverongaps=True, hoverinfo="text", text=hover,
+        xgap=0.3, ygap=1.5,
+    ))
+
+    # divisor vertical
+    if n_hosp > 0 and n_no_hosp > 0:
+        fig.add_vline(x=n_hosp - 0.5, line_width=2, line_color="#333")
+
+    # divisores horizontales entre criterios
+    for i in range(1, 4):
+        fig.add_hline(y=i*2 - 0.5, line_width=1.5, line_color="#555")
+
+    # etiquetas laterales sexo
+    for row_idx, (crit, sx) in enumerate(row_meta):
+        fig.add_annotation(x=-0.005, y=row_idx, xref="paper", yref="y",
+                           text=f"<b>{sex_label[sx]}</b>", showarrow=False,
+                           xanchor="right", font=dict(color="white", size=10),
+                           bgcolor=sex_colors[sx], borderpad=2)
+
+    # etiquetas criterio
+    criterio_names = {1:"Criterio 1", 2:"Criterio 2", 3:"Criterio 3", 4:"Criterio 4"}
+    for ci, crit in enumerate(criterios):
+        fig.add_annotation(x=-0.04, y=ci*2+0.5, xref="paper", yref="y",
+                           text=f"<b>{criterio_names[crit]}</b>", showarrow=False,
+                           xanchor="center", textangle=-90,
+                           font=dict(color="white", size=10),
+                           bgcolor=criterio_colors[crit], borderpad=3)
+
+    # anotaciones grupo X
+    mid_h  = n_hosp / 2 - 0.5
+    mid_nh = n_hosp + n_no_hosp / 2 - 0.5
+    fig.add_annotation(x=mid_h,  y=-0.9, xref="x", yref="paper",
+                       text="<b>Hospitalizados</b>", showarrow=False,
+                       yanchor="top", font=dict(size=11, color="#2C3E7A"),
+                       bgcolor="#F4C2C2", borderpad=3)
+    fig.add_annotation(x=mid_nh, y=-0.9, xref="x", yref="paper",
+                       text="<b>No hospitalizados</b>", showarrow=False,
+                       yanchor="top", font=dict(size=11, color="#2C3E7A"),
+                       bgcolor="#EFEFEF", borderpad=3)
+
+    # leyenda manual
+    for col, lbl in [("#2C3E7A", "Cumple criterio"), ("#F4C2C2", "No cumple criterio"),
+                     ("#EFEFEF", "Sexo no aplica (gap)")]:
+        fig.add_trace(go.Scatter(x=[None], y=[None], mode="markers",
+                                 marker=dict(size=12, color=col, symbol="square"),
+                                 name=lbl, showlegend=True))
+
+    fig.update_layout(
+        title=dict(text="Opción A — Heatmap Criterios (gaps en gris claro)", font=dict(size=14)),
+        xaxis=dict(title="Pacientes", showticklabels=False, showgrid=False, zeroline=False),
+        yaxis=dict(tickvals=list(range(len(y_labels))), ticktext=y_labels,
+                   showgrid=False, autorange="reversed"),
+        template="plotly_white",
+        # plot_bgcolor gris claro → los None (gaps) heredan este color
+        plot_bgcolor="#EFEFEF",
+        height=420, width=1100,
+        margin=dict(l=130, r=40, t=60, b=90),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.28,
+                    xanchor="center", x=0.5),
+    )
+    return fig
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OPCIÓN B: 4 filas (una por criterio, sin split de sexo) + tira de sexo
+# encima del heatmap principal. Sin gaps en el mapa base.
+# ─────────────────────────────────────────────────────────────────────────────
+def plot_criterios_hospitalizacion_heatmap_opcionB(
+    df: pl.DataFrame,
+    exclude_hosp_null: bool = True,
+) -> go.Figure:
+    """
+    Opción B: 4 filas (C1–C4) sin split por sexo. Sin gaps.
+    Una franja de color encima codifica el sexo de cada paciente.
+    """
+    import numpy as np
+    from scipy.cluster.hierarchy import linkage, leaves_list
+
+    # ── preparar hosp_num ────────────────────────────────────────────────────
+    hosp_col = df["Hospitalización"]
+    if hosp_col.dtype in (pl.Utf8, pl.String):
+        df_h = df.with_columns(
+            pl.when(pl.col("Hospitalización") == "1").then(1)
+            .when(pl.col("Hospitalización") == "0").then(0)
+            .otherwise(pl.lit(None)).cast(pl.Int32).alias("_hosp_num")
+        )
+    else:
+        df_h = df.with_columns(
+            pl.when(pl.col("Hospitalización") == 1).then(1)
+            .when(pl.col("Hospitalización") == 0).then(0)
+            .otherwise(pl.lit(None)).cast(pl.Int32).alias("_hosp_num")
+        )
+    if exclude_hosp_null:
+        df_h = df_h.filter(~pl.col("_hosp_num").is_null())
+
+    # ── clustering ───────────────────────────────────────────────────────────
+    crit_cols = ["criterio_1", "criterio_2", "criterio_3", "criterio_4"]
+
+    def _cluster(sub: pl.DataFrame) -> list:
+        if sub.height < 2:
+            return list(range(sub.height))
+        mat = sub.select(crit_cols).to_numpy().astype(float)
+        if np.all(mat == mat[0]):
+            return list(range(sub.height))
+        return leaves_list(linkage(mat, method="ward")).tolist()
+
+    df_hosp    = df_h.filter(pl.col("_hosp_num") == 1)
+    df_no_hosp = df_h.filter(pl.col("_hosp_num") == 0)
+    df_sorted  = pl.concat([df_hosp[_cluster(df_hosp)],
+                             df_no_hosp[_cluster(df_no_hosp)]])
+
+    n_patients = df_sorted.height
+    n_hosp     = df_hosp.height
+    n_no_hosp  = df_no_hosp.height
+
+    criterios = [1, 2, 3, 4]
+    criterio_names  = {1:"Criterio 1", 2:"Criterio 2", 3:"Criterio 3", 4:"Criterio 4"}
+    criterio_colors = {1:"#3498db", 2:"#e74c3c", 3:"#f39c12", 4:"#9b59b6"}
+
+    hosp_arr = df_sorted["_hosp_num"].to_numpy()
+    sexo_arr = df_sorted["sexo"].to_numpy()
+    sum_arr  = (df_sorted["criterio_1"].cast(pl.Int32) +
+                df_sorted["criterio_2"].cast(pl.Int32) +
+                df_sorted["criterio_3"].cast(pl.Int32) +
+                df_sorted["criterio_4"].cast(pl.Int32)).to_numpy()
+
+    # ── matriz principal: 4 filas × n_patients (0/1, sin None) ──────────────
+    z_main  = []
+    y_main  = []
+    hover_main = []
+    for crit in criterios:
+        crit_arr = df_sorted[f"criterio_{crit}"].to_numpy()
+        row, rh = [], []
+        for i in range(n_patients):
+            v  = int(crit_arr[i])
+            sx = "H" if sexo_arr[i] == 1 else "M"
+            hs = "Hospitalizado" if hosp_arr[i] == 1 else "No hospitalizado"
+            row.append(v)
+            rh.append(f"Paciente {i+1}<br>Sexo: {sx}<br>{hs}<br>"
+                      f"Criterios: {int(sum_arr[i])}/4<br>"
+                      f"C{crit}: {'<b>Cumple</b>' if v else 'No cumple'}")
+        z_main.append(row)
+        y_main.append(criterio_names[crit])
+        hover_main.append(rh)
+
+    # ── franja de sexo: 1 fila × n_patients (0=Hombre, 1=Mujer) ────────────
+    z_sex  = [[0 if sexo_arr[i] == 1 else 1 for i in range(n_patients)]]
+    hover_sex = [[("H" if sexo_arr[i] == 1 else "M") for i in range(n_patients)]]
+
+    # ── subplots: fila 1 (tira sexo, 8% alto) + fila 2 (heatmap, 92%) ───────
+    fig = make_subplots(
+        rows=2, cols=1,
+        shared_xaxes=True,
+        row_heights=[0.07, 0.93],
+        vertical_spacing=0.01,
+    )
+
+    # tira de sexo
+    fig.add_trace(go.Heatmap(
+        z=z_sex, zmin=0, zmax=1,
+        colorscale=[[0.0, "#2980b9"], [0.5, "#2980b9"],   # Hombre azul
+                    [0.5, "#e74c3c"], [1.0, "#e74c3c"]],  # Mujer rojo
+        showscale=False, hoverongaps=False,
+        hoverinfo="text", text=hover_sex, xgap=0.3,
+    ), row=1, col=1)
+
+    # heatmap principal
+    fig.add_trace(go.Heatmap(
+        z=z_main, zmin=0, zmax=1,
+        colorscale=[[0.0, "#F4C2C2"], [0.5, "#F4C2C2"],
+                    [0.5, "#2C3E7A"], [1.0, "#2C3E7A"]],
+        showscale=False, hoverongaps=False,
+        hoverinfo="text", text=hover_main, xgap=0.3, ygap=2,
+    ), row=2, col=1)
+
+    # divisor vertical entre grupos
+    if n_hosp > 0 and n_no_hosp > 0:
+        for r in [1, 2]:
+            fig.add_vline(x=n_hosp - 0.5, line_width=2, line_color="#333",
+                          row=r, col=1)
+
+    # etiquetas criterio en eje Y del heatmap (row 2)
+    fig.update_yaxes(
+        tickvals=list(range(4)), ticktext=list(y_main),
+        showgrid=False, autorange="reversed", row=2, col=1,
+    )
+    fig.update_yaxes(
+        tickvals=[0], ticktext=["Sexo"], showgrid=False, row=1, col=1,
+    )
+
+    # anotaciones grupo X (debajo del subplot 2)
+    mid_h  = n_hosp / 2 - 0.5
+    mid_nh = n_hosp + n_no_hosp / 2 - 0.5
+    fig.add_annotation(x=mid_h,  y=-0.06, xref="x2", yref="paper",
+                       text="<b>Hospitalizados</b>", showarrow=False,
+                       yanchor="top", font=dict(size=11, color="#2C3E7A"),
+                       bgcolor="#F4C2C2", borderpad=3)
+    fig.add_annotation(x=mid_nh, y=-0.06, xref="x2", yref="paper",
+                       text="<b>No hospitalizados</b>", showarrow=False,
+                       yanchor="top", font=dict(size=11, color="#2C3E7A"),
+                       bgcolor="#DCDCDC", borderpad=3)
+
+    # etiquetas criterio en el margen izquierdo
+    for ci, crit in enumerate(criterios):
+        fig.add_annotation(x=-0.04, y=ci, xref="paper", yref="y2",
+                           text=f"<b>{criterio_names[crit]}</b>",
+                           showarrow=False, xanchor="center", textangle=-90,
+                           font=dict(color="white", size=10),
+                           bgcolor=criterio_colors[crit], borderpad=3)
+
+    # leyenda manual
+    for col, lbl in [("#2C3E7A", "Cumple criterio"), ("#F4C2C2", "No cumple"),
+                     ("#2980b9", "Hombre"), ("#e74c3c", "Mujer")]:
+        fig.add_trace(go.Scatter(x=[None], y=[None], mode="markers",
+                                 marker=dict(size=12, color=col, symbol="square"),
+                                 name=lbl, showlegend=True))
+
+    fig.update_layout(
+        title=dict(
+            text="Opción B — Heatmap 4 Criterios + Tira de Sexo (sin gaps)",
+            font=dict(size=14),
+        ),
+        xaxis2=dict(title="Pacientes", showticklabels=False,
+                    showgrid=False, zeroline=False),
+        xaxis=dict(showticklabels=False, showgrid=False, zeroline=False),
+        template="plotly_white",
+        plot_bgcolor="white",
+        height=480, width=1100,
+        margin=dict(l=130, r=40, t=60, b=90),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.22,
+                    xanchor="center", x=0.5),
+    )
+    return fig
