@@ -3333,3 +3333,252 @@ def plot_criterios_hospitalizacion_heatmap_opcionB(
                     xanchor="center", x=0.5),
     )
     return fig
+
+
+def plot_criterios_hospitalizacion_heatmap_agrupado_sexo(
+    df: pl.DataFrame,
+) -> go.Figure:
+    """
+    Heatmap Opción C — 4 criterios × pacientes, ordenados como:
+      Hospitalizados·H  →  Hospitalizados·M  →  No Hosp·H  →  No Hosp·M
+
+    Encabezados de dos niveles en la parte superior del gráfico (vía annotations):
+      ┌──────────────────────────────┬────────────────────────────────────┐
+      │       Hospitalizados         │         No hospitalizados          │
+      ├──────────────┬───────────────┼──────────────────┬─────────────────┤
+      │      H       │       M       │        H         │        M        │
+      └──────────────┴───────────────┴──────────────────┴─────────────────┘
+
+    3 separadores verticales: entre H|M hosp, entre hosp|no_hosp, entre H|M no_hosp.
+
+    Los 9 pacientes con Hospitalización=NULL se excluyen.
+    """
+    import numpy as np
+    from scipy.cluster.hierarchy import linkage, leaves_list
+
+    # ── 1. Preparar _hosp_num ────────────────────────────────────────────────
+    hosp_col = df["Hospitalización"]
+    if hosp_col.dtype in (pl.Utf8, pl.String):
+        df_h = df.with_columns(
+            pl.when(pl.col("Hospitalización") == "1").then(1)
+            .when(pl.col("Hospitalización") == "0").then(0)
+            .otherwise(pl.lit(None)).cast(pl.Int32).alias("_hosp_num")
+        )
+    else:
+        df_h = df.with_columns(
+            pl.when(pl.col("Hospitalización") == 1).then(1)
+            .when(pl.col("Hospitalización") == 0).then(0)
+            .otherwise(pl.lit(None)).cast(pl.Int32).alias("_hosp_num")
+        )
+    # Excluir nulls (no pueden ser clasificados en ningún grupo)
+    df_h = df_h.filter(~pl.col("_hosp_num").is_null())
+
+    # ── 2. Dividir en 4 grupos ───────────────────────────────────────────────
+    crit_cols = ["criterio_1", "criterio_2", "criterio_3", "criterio_4"]
+
+    def cluster_order(sub: pl.DataFrame) -> list:
+        if sub.height < 2:
+            return list(range(sub.height))
+        mat = sub.select(crit_cols).to_numpy().astype(float)
+        if np.all(mat == mat[0]):
+            return list(range(sub.height))
+        return leaves_list(linkage(mat, method="ward")).tolist()
+
+    df_hosp_H    = df_h.filter((pl.col("_hosp_num") == 1) & (pl.col("sexo") == 1))
+    df_hosp_M    = df_h.filter((pl.col("_hosp_num") == 1) & (pl.col("sexo") == 2))
+    df_no_hosp_H = df_h.filter((pl.col("_hosp_num") == 0) & (pl.col("sexo") == 1))
+    df_no_hosp_M = df_h.filter((pl.col("_hosp_num") == 0) & (pl.col("sexo") == 2))
+
+    df_sorted = pl.concat([
+        df_hosp_H[cluster_order(df_hosp_H)],
+        df_hosp_M[cluster_order(df_hosp_M)],
+        df_no_hosp_H[cluster_order(df_no_hosp_H)],
+        df_no_hosp_M[cluster_order(df_no_hosp_M)],
+    ])
+
+    n_hosp_H    = df_hosp_H.height
+    n_hosp_M    = df_hosp_M.height
+    n_no_hosp_H = df_no_hosp_H.height
+    n_no_hosp_M = df_no_hosp_M.height
+    n_hosp      = n_hosp_H + n_hosp_M
+    n_total     = df_sorted.height
+
+    # ── 3. Construir la matriz Z (4 filas × n_total) ─────────────────────────
+    criterios = [1, 2, 3, 4]
+    criterio_names  = {1: "Criterio 1", 2: "Criterio 2", 3: "Criterio 3", 4: "Criterio 4"}
+    criterio_colors = {1: "#3498db", 2: "#e74c3c", 3: "#f39c12", 4: "#9b59b6"}
+
+    hosp_arr = df_sorted["_hosp_num"].to_numpy()
+    sexo_arr = df_sorted["sexo"].to_numpy()
+    sum_arr  = (
+        df_sorted["criterio_1"].cast(pl.Int32) +
+        df_sorted["criterio_2"].cast(pl.Int32) +
+        df_sorted["criterio_3"].cast(pl.Int32) +
+        df_sorted["criterio_4"].cast(pl.Int32)
+    ).to_numpy()
+
+    z_matrix   = []
+    hover_main = []
+    for crit in criterios:
+        crit_arr = df_sorted[f"criterio_{crit}"].to_numpy()
+        row, rh = [], []
+        for i in range(n_total):
+            v  = int(crit_arr[i])
+            sx = "H" if sexo_arr[i] == 1 else "M"
+            hs = "Hospitalizado" if hosp_arr[i] == 1 else "No hospitalizado"
+            row.append(v)
+            rh.append(
+                f"Paciente {i+1}<br>Sexo: {sx}<br>{hs}<br>"
+                f"Criterios: {int(sum_arr[i])}/4<br>"
+                f"C{crit}: {'<b>Cumple</b>' if v else 'No cumple'}"
+            )
+        z_matrix.append(row)
+        hover_main.append(rh)
+
+    # ── 4. Figura ────────────────────────────────────────────────────────────
+    colorscale = [
+        [0.0, "#F4C2C2"], [0.5, "#F4C2C2"],
+        [0.5, "#2C3E7A"], [1.0, "#2C3E7A"],
+    ]
+
+    fig = go.Figure(data=go.Heatmap(
+        z=z_matrix, zmin=0, zmax=1,
+        colorscale=colorscale,
+        showscale=False,
+        hoverongaps=False,
+        hoverinfo="text",
+        text=hover_main,
+        xgap=0.3,
+        ygap=2,
+    ))
+
+    # ── 5. Tres separadores verticales ──────────────────────────────────────
+    dividers = [
+        n_hosp_H - 0.5,           # H|M dentro de hospitalizados
+        n_hosp - 0.5,             # hospitalizados | no hospitalizados
+        n_hosp + n_no_hosp_H - 0.5,  # H|M dentro de no hospitalizados
+    ]
+    for x_div in dividers:
+        fig.add_vline(x=x_div, line_width=2, line_color="#333333", line_dash="solid")
+
+    # ── 6. Eje Y: etiquetas de criterio ─────────────────────────────────────
+    fig.update_yaxes(
+        tickvals=list(range(4)),
+        ticktext=[criterio_names[c] for c in criterios],
+        showgrid=False,
+        autorange="reversed",
+    )
+    fig.update_xaxes(showticklabels=False, showgrid=False, zeroline=False)
+
+    # ── 7. Annotations de encabezado de 2 niveles ──────────────────────────
+    #   Nivel 1: "Hospitalizados" y "No hospitalizados"
+    #   Nivel 2: "H" y "M" dentro de cada grupo
+
+    # posiciones del papel: necesitamos convertir índices de x a fracción de papel
+    # paper x = (col_index + 0.5) / n_total  (aproximado)
+    # Usamos xref="x" (eje de datos) para anotaciones de datos, pero paper para
+    # encabezados sobre el área del gráfico
+
+    # Centro de cada subgrupo en coordenadas de datos
+    cx_hosp_H    = (n_hosp_H - 1) / 2
+    cx_hosp_M    = n_hosp_H + (n_hosp_M - 1) / 2
+    cx_hosp      = (n_hosp - 1) / 2
+    cx_no_hosp_H = n_hosp + (n_no_hosp_H - 1) / 2
+    cx_no_hosp_M = n_hosp + n_no_hosp_H + (n_no_hosp_M - 1) / 2
+    cx_no_hosp   = n_hosp + (n_no_hosp_H + n_no_hosp_M - 1) / 2
+
+    # Los encabezados van sobre el área del plot, usamos yref="paper" con y > 1
+    # y xref="x" para alinearse con los datos
+    # Espaciado vertical calibrado para que los dos niveles no se sobrepongan
+    # (con height=500, t=100, plot_h≈300 → 4%=12px, 18%=54px, gap ~16px)
+    header2_y = 1.04   # Nivel 2: H / M  — inmediatamente sobre el plot
+    header1_y = 1.18   # Nivel 1: Hospitalizados / No hosp — sobre el nivel 2
+
+    for cx_sub, label, bg in [
+        (cx_hosp_H,    "H", "#2980b9"),
+        (cx_hosp_M,    "M", "#c0397a"),
+        (cx_no_hosp_H, "H", "#2980b9"),
+        (cx_no_hosp_M, "M", "#c0397a"),
+    ]:
+        fig.add_annotation(
+            x=cx_sub, y=header2_y,
+            xref="x", yref="paper",
+            text=f"<b>{label}</b>",
+            showarrow=False,
+            font=dict(color="white", size=13, family="Arial Black"),
+            bgcolor=bg,
+            borderpad=4,
+            xanchor="center",
+            yanchor="bottom",
+        )
+
+    # Nivel 1 — "Hospitalizados" / "No hospitalizados"
+    for cx_grp, label, bg, fc in [
+        (cx_hosp,    "Hospitalizados",    "#e8a0a8", "#7B1A2A"),
+        (cx_no_hosp, "No hospitalizados", "#d0d0d0", "#3A3A3A"),
+    ]:
+        fig.add_annotation(
+            x=cx_grp, y=header1_y,
+            xref="x", yref="paper",
+            text=f"<b>{label}</b>",
+            showarrow=False,
+            font=dict(color=fc, size=13, family="Arial"),
+            bgcolor=bg,
+            borderpad=5,
+            xanchor="center",
+            yanchor="bottom",
+        )
+
+    # ── 8. Etiquetas de criterio en el margen izquierdo ─────────────────────
+    for ci, crit in enumerate(criterios):
+        fig.add_annotation(
+            x=-0.04, y=ci,
+            xref="paper", yref="y",
+            text=f"<b>{criterio_names[crit]}</b>",
+            showarrow=False,
+            xanchor="center", textangle=-90,
+            font=dict(color="white", size=10),
+            bgcolor=criterio_colors[crit],
+            borderpad=3,
+        )
+
+    # ── 9. Leyenda manual ──────────────────────────────────────────────────
+    for col, lbl in [
+        ("#2C3E7A", "Cumple criterio"),
+        ("#F4C2C2", "No cumple"),
+        ("#2980b9",  "Hombre (H)"),
+        ("#c0397a",  "Mujer (M)"),
+    ]:
+        fig.add_trace(go.Scatter(
+            x=[None], y=[None], mode="markers",
+            marker=dict(size=12, color=col, symbol="square"),
+            name=lbl, showlegend=True,
+        ))
+
+    # ── 10. Conteos en anotación inferior ───────────────────────────────────
+    fig.add_annotation(
+        x=0.5, y=-0.10,
+        xref="paper", yref="paper",
+        text=(
+            f"Hospitalizados: {n_hosp_H} H + {n_hosp_M} M = {n_hosp}  |  "
+            f"No hospitalizados: {n_no_hosp_H} H + {n_no_hosp_M} M = {n_no_hosp_H + n_no_hosp_M}"
+        ),
+        showarrow=False,
+        font=dict(size=9, color="#555"),
+        xanchor="center",
+    )
+
+    fig.update_layout(
+        title=None,   # Sin título de layout — los badges de encabezado son suficientes
+        xaxis=dict(
+            title="Pacientes", showticklabels=False,
+            showgrid=False, zeroline=False,
+        ),
+        template="plotly_white",
+        plot_bgcolor="white",
+        height=500, width=1200,
+        margin=dict(l=130, r=40, t=100, b=100),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.22,
+                    xanchor="center", x=0.5),
+    )
+    return fig

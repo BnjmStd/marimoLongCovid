@@ -49,7 +49,8 @@ from .visualizations import (
     create_table1_stratified,
     plot_criterios_hospitalizacion_heatmap,
     plot_criterios_hospitalizacion_heatmap_opcionA,
-    plot_criterios_hospitalizacion_heatmap_opcionB
+    plot_criterios_hospitalizacion_heatmap_opcionB,
+    plot_criterios_hospitalizacion_heatmap_agrupado_sexo
 )
 
 __all__ = [
@@ -98,5 +99,6 @@ __all__ = [
     'create_table1_stratified',
     'plot_criterios_hospitalizacion_heatmap',
     'plot_criterios_hospitalizacion_heatmap_opcionA',
-    'plot_criterios_hospitalizacion_heatmap_opcionB'
+    'plot_criterios_hospitalizacion_heatmap_opcionB',
+    'plot_criterios_hospitalizacion_heatmap_agrupado_sexo'
 ]

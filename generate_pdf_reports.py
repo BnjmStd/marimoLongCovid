@@ -52,7 +52,8 @@ from modules import (
     create_table1_stratified,
     plot_criterios_hospitalizacion_heatmap,
     plot_criterios_hospitalizacion_heatmap_opcionA,
-    plot_criterios_hospitalizacion_heatmap_opcionB
+    plot_criterios_hospitalizacion_heatmap_opcionB,
+    plot_criterios_hospitalizacion_heatmap_agrupado_sexo
 )
 
 # Crear directorio de salida
@@ -1019,6 +1020,41 @@ Eje Y: Hospitalización, Severidad, Condiciones preexistentes
 **Codificación:**
 - Azul oscuro (#2C3E7A): Cumple criterio | Rosa claro (#F4C2C2): No cumple
 - Tira: Azul (#2980b9) = Hombre | Rojo (#e74c3c) = Mujer
+        """
+    })
+
+    # HEATMAP OPCION C - AGRUPADO POR HOSPITALIZACIÓN × SEXO
+    reports.append({
+        'function': plot_criterios_hospitalizacion_heatmap_agrupado_sexo,
+        'args': (df_con_criterios,),
+        'title': 'Heatmap Opcion C - Agrupado por Hospitalizacion y Sexo',
+        'img_width': 1800,
+        'img_height': 600,
+        'interpretation': """
+**Heatmap Opción C: Pacientes ordenados Hosp-H → Hosp-M → No Hosp-H → No Hosp-M**
+
+**Motivación:**
+La versión anterior (Opción B) mostraba el sexo como tira superior, pero el orden
+interno mezclaba hombres y mujeres (HHHMHHMHMHM…). Esta opción agrupa visualmente
+por sexo dentro de cada grupo de hospitalización, tal como solicitó la jefatura.
+
+**Estructura con encabezados de 2 niveles:**
+- Nivel superior: "Hospitalizados" (fondo rosa) | "No hospitalizados" (fondo gris)
+- Nivel inferior: "H" (azul) y "M" (fucsia) dentro de cada grupo
+- 3 separadores verticales: H|M hosp, hosp|no_hosp, H|M no_hosp
+
+**Grupos (excluidos 9 con hospitalización desconocida):**
+- Hospitalizados Hombres (H): 112  |  Hospitalizados Mujeres (M): 111
+- No hosp. Hombres (H): 439        |  No hosp. Mujeres (M): 834
+
+**Ventajas respecto a Opción B:**
+- El sexo es legible de inmediato: bloques continuos de H y M
+- No se necesita tira adicional — el orden es autoexplicativo
+- Facilita comparar densidad de criterios H vs M dentro de cada grupo
+- Clustering jerárquico independiente dentro de cada uno de los 4 subgrupos
+
+**Codificación:**
+- Azul oscuro (#2C3E7A): Cumple criterio | Rosa claro (#F4C2C2): No cumple
         """
     })
 
