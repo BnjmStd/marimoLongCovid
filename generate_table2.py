@@ -185,46 +185,76 @@ _amr_case = cases_amr["AMR"].drop_nulls().cast(pl.Float64).to_numpy()
 _p_amr = fmt_p(float(stats.mannwhitneyu(_amr_ctrl, _amr_case, alternative="two-sided").pvalue))
 add_row(
     "Ancestry AMR",
-    mean_sd(df_amr["AMR"]),
+    f"Total (n={total_nonull(df_amr, 'AMR')})",
+    total_nonull(controls_amr, "AMR"),
+    total_nonull(cases_amr, "AMR"),
+    _p_amr,
+)
+add_row(
+    "",
+    f"  {mean_sd(df_amr['AMR'])}",
     mean_sd(controls_amr["AMR"]),
     mean_sd(cases_amr["AMR"]),
-    _p_amr,
 )
 
 # ── Ancestry AFR ──────────────────────────────────────────────────────────
 add_row(
     "Ancestry AFR",
-    mean_sd(df["AFR"], decimals=2),
+    f"Total (n={total_nonull(df, 'AFR')})",
+    total_nonull(controls, "AFR"),
+    total_nonull(cases, "AFR"),
+    pval_continuous("AFR"),
+)
+add_row(
+    "",
+    f"  {mean_sd(df['AFR'], decimals=2)}",
     mean_sd(controls["AFR"], decimals=2),
     mean_sd(cases["AFR"], decimals=2),
-    pval_continuous("AFR"),
 )
 
 # ── Ancestry EUR ──────────────────────────────────────────────────────────
 add_row(
     "Ancestry EUR",
-    mean_sd(df["EUR"], decimals=2),
+    f"Total (n={total_nonull(df, 'EUR')})",
+    total_nonull(controls, "EUR"),
+    total_nonull(cases, "EUR"),
+    pval_continuous("EUR"),
+)
+add_row(
+    "",
+    f"  {mean_sd(df['EUR'], decimals=2)}",
     mean_sd(controls["EUR"], decimals=2),
     mean_sd(cases["EUR"], decimals=2),
-    pval_continuous("EUR"),
 )
 
 # ── Ancestry MAP ──────────────────────────────────────────────────────────
 add_row(
     "Ancestry MAP",
-    mean_sd(df["MAP"], decimals=2),
+    f"Total (n={total_nonull(df, 'MAP')})",
+    total_nonull(controls, "MAP"),
+    total_nonull(cases, "MAP"),
+    pval_continuous("MAP"),
+)
+add_row(
+    "",
+    f"  {mean_sd(df['MAP'], decimals=2)}",
     mean_sd(controls["MAP"], decimals=2),
     mean_sd(cases["MAP"], decimals=2),
-    pval_continuous("MAP"),
 )
 
 # ── Ancestry AYM ──────────────────────────────────────────────────────────
 add_row(
     "Ancestry AYM",
-    mean_sd(df["AYM"], decimals=2),
+    f"Total (n={total_nonull(df, 'AYM')})",
+    total_nonull(controls, "AYM"),
+    total_nonull(cases, "AYM"),
+    pval_continuous("AYM"),
+)
+add_row(
+    "",
+    f"  {mean_sd(df['AYM'], decimals=2)}",
     mean_sd(controls["AYM"], decimals=2),
     mean_sd(cases["AYM"], decimals=2),
-    pval_continuous("AYM"),
 )
 
 # ── Population Density ────────────────────────────────────────────────────
