@@ -3342,6 +3342,11 @@ def plot_criterios_hospitalizacion_heatmap_agrupado_sexo(
     Heatmap Opción C — 4 criterios × pacientes, ordenados como:
       Hospitalizados·H  →  Hospitalizados·M  →  No Hosp·H  →  No Hosp·M
 
+    Dentro de cada subgrupo los pacientes se ordenan por cumplimiento de criterios
+    (orden lexicográfico descendente: C1 > C2 > C3 > C4), de forma que en la fila
+    de cada criterio los que lo cumplen aparecen primero (izquierda) y los que no lo
+    cumplen aparecen después (derecha).
+
     Encabezados de dos niveles en la parte superior del gráfico (vía annotations):
       ┌──────────────────────────────┬────────────────────────────────────┐
       │       Hospitalizados         │         No hospitalizados          │
@@ -3353,8 +3358,7 @@ def plot_criterios_hospitalizacion_heatmap_agrupado_sexo(
 
     Los 9 pacientes con Hospitalización=NULL se excluyen.
     """
-    import numpy as np
-    from scipy.cluster.hierarchy import linkage, leaves_list
+    import numpy as np  # necesario para .to_numpy() y operaciones de arrays
 
     # ── 1. Preparar _hosp_num ────────────────────────────────────────────────
     hosp_col = df["Hospitalización"]
@@ -3374,15 +3378,16 @@ def plot_criterios_hospitalizacion_heatmap_agrupado_sexo(
     df_h = df_h.filter(~pl.col("_hosp_num").is_null())
 
     # ── 2. Dividir en 4 grupos ───────────────────────────────────────────────
-    crit_cols = ["criterio_1", "criterio_2", "criterio_3", "criterio_4"]
 
-    def cluster_order(sub: pl.DataFrame) -> list:
-        if sub.height < 2:
-            return list(range(sub.height))
-        mat = sub.select(crit_cols).to_numpy().astype(float)
-        if np.all(mat == mat[0]):
-            return list(range(sub.height))
-        return leaves_list(linkage(mat, method="ward")).tolist()
+    def sort_by_criterios(sub: pl.DataFrame) -> pl.DataFrame:
+        """Ordena un subgrupo: primero los que cumplen C1, luego C2, C3, C4 (desc).
+        Resultado: dentro de cada fila de criterio, los "cumple" aparecen agrupados
+        a la izquierda y los "no cumple" a la derecha.
+        """
+        return sub.sort(
+            ["criterio_1", "criterio_2", "criterio_3", "criterio_4"],
+            descending=[True, True, True, True],
+        )
 
     df_hosp_H    = df_h.filter((pl.col("_hosp_num") == 1) & (pl.col("sexo") == 1))
     df_hosp_M    = df_h.filter((pl.col("_hosp_num") == 1) & (pl.col("sexo") == 2))
@@ -3390,10 +3395,10 @@ def plot_criterios_hospitalizacion_heatmap_agrupado_sexo(
     df_no_hosp_M = df_h.filter((pl.col("_hosp_num") == 0) & (pl.col("sexo") == 2))
 
     df_sorted = pl.concat([
-        df_hosp_H[cluster_order(df_hosp_H)],
-        df_hosp_M[cluster_order(df_hosp_M)],
-        df_no_hosp_H[cluster_order(df_no_hosp_H)],
-        df_no_hosp_M[cluster_order(df_no_hosp_M)],
+        sort_by_criterios(df_hosp_H),
+        sort_by_criterios(df_hosp_M),
+        sort_by_criterios(df_no_hosp_H),
+        sort_by_criterios(df_no_hosp_M),
     ])
 
     n_hosp_H    = df_hosp_H.height
