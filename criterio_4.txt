@@ -1,0 +1,5 @@
+A diferencia del Criterio 2 y 3, el Criterio 4 NO exige que recuperado_3m == 2.
+
+Entonces una persona puede estar marcada como recuperada,
+
+pero aun así cumplir el Criterio 4 si presenta nuevas condiciones o secuelas
