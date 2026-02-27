@@ -399,7 +399,6 @@ _SINTOMAS_POR_CLUSTER: list[tuple[str, str, str]] = [
     # AIRWAYS
     ("congestion_3m",      "Nasal congestion",   "AIRWAYS"),
     ("tos_3m",             "Cough",              "AIRWAYS"),
-    ("",                   "Phlegm",             "AIRWAYS"),
     ("do_garganta_3m",     "Sore throat",        "AIRWAYS"),
     # COGNITIVE
     ("depresion_3m",       "Depression/Anxiety",  "COGNITIVE"),
@@ -430,68 +429,255 @@ _SINTOMAS_POR_CLUSTER: list[tuple[str, str, str]] = [
 ]
 
 
-def plot_clusters_heatmap_normalizado(df: pl.DataFrame) -> go.Figure:
+def _build_heatmap_matrix(
+    df: pl.DataFrame,
+    sintomas: list[tuple[str, str, str]],
+    exclude_nulls: bool = False,
+) -> tuple[
+    list[list[float]],   # heatmap_z      — proporciones para el color
+    list[list[str]],     # heatmap_text   — hover detallado
+    list[list[str]],     # heatmap_counts — conteo n1 para mostrar en celda
+    list[str],           # symptom_labels
+    list[int],           # cluster_boundaries
+    list[str],           # all_weeks
+    dict[str, int],      # n_per_week     — N total (o respondedores) por semana
+]:
     """
-    Heatmap de síntomas (por cluster) × semana epidemiológica, **normalizado**.
+    Construye la matriz de proporciones de forma **vectorizada**:
+    una sola operación group_by por síntoma en lugar de un filter por semana.
 
-    Cada celda = n_pacientes_con_síntoma / n_total_pacientes_en_esa_semana.
-    Valor entre 0 y 1 (mostrado como porcentaje en hover).
-
-    Permite comparar semanas con distinto número de pacientes sin que las
-    semanas con más casos dominen visualmente el heatmap.
+    Returns:
+        heatmap_z, heatmap_text, heatmap_counts,
+        symptom_labels, cluster_boundaries, all_weeks, n_per_week
     """
     all_weeks: list[str] = sorted(
         df.select("yearweek").unique().to_series().to_list()
     )
 
-    # Pre-calcular n total de pacientes por semana (denominador)
-    patients_per_week: dict[str, int] = {}
-    for week in all_weeks:
-        patients_per_week[week] = df.filter(pl.col("yearweek") == week).height
+    # Denominador global por semana
+    totals = (
+        df.group_by("yearweek")
+        .agg(pl.len().alias("n_total"))
+        .to_dict(as_series=False)
+    )
+    n_total_per_week: dict[str, int] = dict(
+        zip(totals["yearweek"], totals["n_total"])
+    )
+    n_per_week = n_total_per_week  # exposer para el caller
 
-    # Construir matrices
-    heatmap_z: list[list[float]] = []          # valores normalizados
-    heatmap_text: list[list[str]] = []         # hover text
+    heatmap_z: list[list[float]] = []
+    heatmap_text: list[list[str]] = []
+    heatmap_counts: list[list[str]] = []
     symptom_labels: list[str] = []
     cluster_boundaries: list[int] = []
-
     current_cluster: str | None = None
     row_idx = 0
 
-    for var_col, label, cluster in _SINTOMAS_POR_CLUSTER:
+    for var_col, label, cluster in sintomas:
         if cluster != current_cluster:
             if current_cluster is not None:
                 cluster_boundaries.append(row_idx)
             current_cluster = cluster
-
         symptom_labels.append(label)
 
         if not var_col or var_col not in df.columns:
             heatmap_z.append([0.0] * len(all_weeks))
             heatmap_text.append([""] * len(all_weeks))
+            heatmap_counts.append([""] * len(all_weeks))
             row_idx += 1
             continue
 
+        # Una sola pasada sobre el DataFrame por síntoma
+        agg_exprs = [
+            (pl.col(var_col) == 1).sum().alias("n1"),
+        ]
+        if exclude_nulls:
+            agg_exprs.append(pl.col(var_col).is_not_null().sum().alias("n_denom"))
+
+        agg = (
+            df.group_by("yearweek")
+            .agg(agg_exprs)
+            .to_dict(as_series=False)
+        )
+        n1_map: dict[str, int] = dict(zip(agg["yearweek"], agg["n1"]))
+        denom_map: dict[str, int] = (
+            dict(zip(agg["yearweek"], agg["n_denom"])) if exclude_nulls else {}
+        )
+
         row_z: list[float] = []
         row_t: list[str] = []
+        row_c: list[str] = []
         for week in all_weeks:
-            n_total = patients_per_week[week]
-            n_symptom = df.filter(
-                (pl.col("yearweek") == week) & (pl.col(var_col) == 1)
-            ).height
-            prop = n_symptom / n_total if n_total > 0 else 0.0
+            n1 = n1_map.get(week, 0) or 0
+            if exclude_nulls:
+                n_denom = denom_map.get(week, 0) or 0
+                denom_label = "respondieron"
+            else:
+                n_denom = n_total_per_week.get(week, 0) or 0
+                denom_label = "total"
+            prop = n1 / n_denom if n_denom > 0 else 0.0
             row_z.append(round(prop, 4))
             row_t.append(
                 f"Week: {week}<br>"
                 f"Symptom: {label}<br>"
-                f"Cases: {n_symptom} / {n_total}<br>"
+                f"Cases: {n1} / {n_denom} ({denom_label})<br>"
                 f"<b>Proportion: {prop:.1%}</b>"
             )
+            row_c.append(str(n1) if n_denom > 0 else "")
         heatmap_z.append(row_z)
         heatmap_text.append(row_t)
+        heatmap_counts.append(row_c)
         row_idx += 1
 
+    return heatmap_z, heatmap_text, heatmap_counts, symptom_labels, cluster_boundaries, all_weeks, n_per_week
+
+
+def plot_clusters_heatmap_normalizado(df: pl.DataFrame) -> go.Figure:
+    """
+    Heatmap de síntomas (por cluster) × semana epidemiológica, **normalizado**.
+
+    Cada celda = n_pacientes_con_síntoma / n_total_pacientes_en_esa_semana.
+    Muestra el conteo absoluto (n) dentro de cada celda y el N total de la
+    semana en las etiquetas del eje X.
+    """
+    heatmap_z, heatmap_text, heatmap_counts, symptom_labels, cluster_boundaries, all_weeks, n_per_week = (
+        _build_heatmap_matrix(df, _SINTOMAS_POR_CLUSTER, exclude_nulls=False)
+    )
+
+    n_weeks = len(all_weeks)
+    n_top_labels = [f"N={n_per_week.get(w, 0)}" for w in all_weeks]
+
     # ── Figura ───────────────────────────────────────────────────────────────
+    fig = go.Figure(data=go.Heatmap(
+        z=heatmap_z,
+        x=all_weeks,
+        y=symptom_labels,
+        colorscale="Viridis",
+        zmin=0, zmax=1,
+        colorbar=dict(
+            title="Proportion",
+            tickformat=".0%",
+            tickvals=[0, 0.25, 0.50, 0.75, 1.0],
+        ),
+        hoverongaps=False,
+        # Conteo n1 visible en la celda
+        text=heatmap_counts,
+        texttemplate="%{text}",
+        textfont=dict(size=7),
+        # Hover detallado usando customdata
+        customdata=heatmap_text,
+        hovertemplate="%{customdata}<extra></extra>",
+    ))
+
+    # Scatter invisible que ancla el eje superior (xaxis2) con los N por semana
+    fig.add_trace(go.Scatter(
+        x=list(range(n_weeks)),
+        y=[None] * n_weeks,
+        xaxis="x2",
+        showlegend=False,
+        mode="markers",
+        marker=dict(opacity=0, size=0),
+    ))
+
+    # Separadores entre clusters
+    shapes = []
+    for boundary_idx in cluster_boundaries:
+        shapes.append(dict(
+            type="line",
+            x0=-0.5, x1=n_weeks - 0.5,
+            y0=boundary_idx - 0.5, y1=boundary_idx - 0.5,
+            line=dict(color="white", width=2),
+        ))
+
+    fig.update_layout(
+        title="Symptoms at ≥3 months by Week of Diagnosis (normalized by week N)",
+        xaxis_title="Epidemiological Week",
+        yaxis_title="Symptoms (grouped by cluster)",
+        template="plotly_white",
+        height=800,
+        width=1400,
+        # Eje inferior: semanas epidemiológicas
+        xaxis=dict(
+            type="category",
+            categoryorder="array",
+            categoryarray=all_weeks,
+            tickangle=-45,
+            side="bottom",
+            tickfont=dict(size=8),
+        ),
+        # Eje superior: N total por semana
+        xaxis2=dict(
+            overlaying="x",
+            side="top",
+            type="linear",
+            range=[-0.5, n_weeks - 0.5],
+            tickmode="array",
+            tickvals=list(range(n_weeks)),
+            ticktext=n_top_labels,
+            tickangle=-45,
+            tickfont=dict(size=7, color="#555555"),
+            showgrid=False,
+            zeroline=False,
+            showline=False,
+        ),
+        yaxis=dict(side="left", autorange="reversed", tickfont=dict(size=10)),
+        shapes=shapes,
+    )
+
+    return fig
+
+
+# ── Síntomas según la figura del paper (imagen de referencia) ────────────────
+# Cambios respecto a _SINTOMAS_POR_CLUSTER original:
+#   AIRWAYS  : "Phlegm" (vacío) → "Hoarsely" (vosronca_3m)
+#   COGNITIVE: "Headache" (do_cabeza_3m) → "Insomnia" (insomnio_3m)
+#   GASTRO   : se agrega "Chills" (escalofrios_3m) como 3er ítem
+_SINTOMAS_IMAGEN: list[tuple[str, str, str]] = [
+    # AIRWAYS
+    ("congestion_3m",      "Nasal congestion",   "AIRWAYS"),
+    ("tos_3m",             "Cough",              "AIRWAYS"),
+    ("vosronca_3m",        "Hoarsely",           "AIRWAYS"),
+    ("do_garganta_3m",     "Sore throat",        "AIRWAYS"),
+    # COGNITIVE
+    ("depresion_3m",       "Depression/Anxiety", "COGNITIVE"),
+    ("memoria_3m",         "Memory impairment",  "COGNITIVE"),
+    ("somnolencia_3m",     "Drowsiness",         "COGNITIVE"),
+    ("insomnio_3m",        "Insomnia",           "COGNITIVE"),
+    # GASTROINTESTINAL
+    ("do_abdominal_3m",    "Abdominal pain",     "GASTROINTESTINAL"),
+    ("nausea_3m",          "Nausea",             "GASTROINTESTINAL"),
+    ("escalofrios_3m",     "Chills",             "GASTROINTESTINAL"),
+    ("hin_piernas_3m",     "Swollen legs (edema)","GASTROINTESTINAL"),
+    ("diarrea_3m",         "Diarrhea",           "GASTROINTESTINAL"),
+    ("pe_peso_3m",         "Weight loss",        "GASTROINTESTINAL"),
+    ("apetito_3m",         "Reduced appetite",   "GASTROINTESTINAL"),
+    # MUSCULAR
+    ("do_musculos_3m",     "Muscle pain",        "MUSCULAR"),
+    ("do_articulacion_3m", "Joint pain",         "MUSCULAR"),
+    ("pes_piernas_3m",     "Legs feel heavy",    "MUSCULAR"),
+    # RESPIRATORY
+    ("fa_aliento_3m",      "Shortness of breath","RESPIRATORY"),
+    ("fatiga_3m",          "Fatigue",            "RESPIRATORY"),
+    ("di_respirar_3m",     "Breathing difficulty","RESPIRATORY"),
+    # SMELL/TASTE
+    ("pe_olfato_3m",       "Anosmia",            "SMELL/TASTE"),
+    ("ca_olfato_3m",       "Change in smell",    "SMELL/TASTE"),
+    ("pe_gusto_3m",        "Ageusia",            "SMELL/TASTE"),
+    ("ca_gusto_3m",        "Change in taste",    "SMELL/TASTE"),
+]
+
+
+def plot_clusters_heatmap_normalizado_sin_nulos(df: pl.DataFrame) -> go.Figure:
+    """
+    Heatmap de síntomas (figura del paper) × semana epidemiológica.
+
+    Usa _SINTOMAS_IMAGEN (Hoarsely, Insomnia, Chills en lugar de Phlegm/Headache).
+    Denominador excluye NULLs: cada celda = n_síntoma=1 / n_que_respondieron.
+    """
+    heatmap_z, heatmap_text, heatmap_counts, symptom_labels, cluster_boundaries, all_weeks, n_per_week = (
+        _build_heatmap_matrix(df, _SINTOMAS_IMAGEN, exclude_nulls=True)
+    )
+
     fig = go.Figure(data=go.Heatmap(
         z=heatmap_z,
         x=all_weeks,
@@ -508,7 +694,6 @@ def plot_clusters_heatmap_normalizado(df: pl.DataFrame) -> go.Figure:
         text=heatmap_text,
     ))
 
-    # Separadores entre clusters
     shapes = []
     for boundary_idx in cluster_boundaries:
         shapes.append(dict(
@@ -519,7 +704,8 @@ def plot_clusters_heatmap_normalizado(df: pl.DataFrame) -> go.Figure:
         ))
 
     fig.update_layout(
-        title="Symptoms at ≥3 months by Week of Diagnosis (normalized by week N)",
+        title="Symptoms at ≥3 months by Week of Diagnosis<br>"
+              "<sup>Normalized by respondents per week (nulls excluded) — symptoms from paper figure</sup>",
         xaxis_title="Epidemiological Week",
         yaxis_title="Symptoms (grouped by cluster)",
         template="plotly_white",

@@ -41,6 +41,7 @@ from heatmap_utils import (
     plot_heatmap_opcionC_con_ids,
     plot_heatmap_opcionC_arbol_ids,
     plot_clusters_heatmap_normalizado,
+    plot_clusters_heatmap_normalizado_sin_nulos,
 )
 
 # Generador de tabla TXT
@@ -253,6 +254,28 @@ Eje X: Semana epidemiológica | Eje Y: Síntomas individuales (agrupados por clu
 - Permite comparar semanas con distinto nº de pacientes
 - Escala Viridis: amarillo = alta proporción, azul oscuro = baja
 - Líneas blancas separan los clusters
+            """,
+        },
+        # ── Heatmap Normalizado — síntomas figura paper (sin nulos) ──────
+        {
+            "function": plot_clusters_heatmap_normalizado_sin_nulos,
+            "args": (df_con_criterios,),
+            "title": "Heatmap Normalizado - Sintomas Figura Paper (sin nulos)",
+            "img_width": 1400,
+            "img_height": 900,
+            "interpretation": """
+**Heatmap de síntomas (figura del paper) × semana — NORMALIZADO sin nulos**
+
+Síntomas replicados exactamente desde la figura de referencia:
+- AIRWAYS: Nasal congestion, Cough, Hoarsely, Sore throat
+- COGNITIVE: Depression/Anxiety, Memory impairment, Drowsiness, Insomnia
+- GASTROINTESTINAL: Abdominal pain, Nausea, Chills, Edema, Diarrhea, Weight loss, Reduced appetite
+- MUSCULAR: Muscle pain, Joint pain, Legs feel heavy
+- RESPIRATORY: Shortness of breath, Fatigue, Breathing difficulty
+- SMELL/TASTE: Anosmia, Change in smell, Ageusia, Change in taste
+
+Denominador corregido: se excluyen NULLs por columna y semana.
+Cada celda = n con síntoma = 1 / n que respondieron esa pregunta en esa semana.
             """,
         },
     ]

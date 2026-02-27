@@ -25,7 +25,7 @@ def _():
     )
 
     # Funciones locales mejoradas con IDs de paciente
-    from heatmap_utils import plot_heatmap_opcionC_con_ids, plot_heatmap_opcionC_arbol_ids, plot_clusters_heatmap_normalizado
+    from heatmap_utils import plot_heatmap_opcionC_con_ids, plot_heatmap_opcionC_arbol_ids, plot_clusters_heatmap_normalizado, plot_clusters_heatmap_normalizado_sin_nulos
 
     return (
         create_criterio_variables,
@@ -34,6 +34,7 @@ def _():
         pl,
         plot_clusters_heatmap_by_diagnosis_week,
         plot_clusters_heatmap_normalizado,
+        plot_clusters_heatmap_normalizado_sin_nulos,
         plot_criterios_hospitalizacion_heatmap_agrupado_sexo,
         plot_heatmap_opcionC_con_ids,
         plot_heatmap_opcionC_arbol_ids,
@@ -263,6 +264,36 @@ def _(df_con_criterios, plot_clusters_heatmap_normalizado):
     fig_clusters_norm = plot_clusters_heatmap_normalizado(df_con_criterios)
     fig_clusters_norm
     return (fig_clusters_norm,)
+
+
+# ── Heatmap de Clusters NORMALIZADO — síntomas de la figura del paper ─────────
+
+
+@app.cell
+def _(mo):
+    mo.md("""
+    ---
+    ## 5. Heatmap Normalizado — Síntomas de la Figura del Paper (sin nulos en denominador)
+
+    Versión que replica exactamente los síntomas de la figura adjunta:
+    - **AIRWAYS**: Nasal congestion, Cough, **Hoarsely**, Sore throat
+    - **COGNITIVE**: Depression/Anxiety, Memory impairment, Drowsiness, **Insomnia**
+    - **GASTRO**: Abdominal pain, Nausea, **Chills**, Edema, Diarrhea, Weight loss, Reduced appetite
+    - **MUSCULAR**: Muscle pain, Joint pain, Legs feel heavy
+    - **RESPIRATORY**: Shortness of breath, Fatigue, Breathing difficulty
+    - **SMELL/TASTE**: Anosmia, Change in smell, Ageusia, Change in taste
+
+    > **Denominador**: solo pacientes que respondieron esa pregunta (NULLs excluidos)
+    > celda = n con síntoma = 1 / n que respondieron (no NULL) en esa semana
+    """)
+    return
+
+
+@app.cell
+def _(df_con_criterios, plot_clusters_heatmap_normalizado_sin_nulos):
+    fig_clusters_norm_v2 = plot_clusters_heatmap_normalizado_sin_nulos(df_con_criterios)
+    fig_clusters_norm_v2
+    return (fig_clusters_norm_v2,)
 
 
 if __name__ == "__main__":
