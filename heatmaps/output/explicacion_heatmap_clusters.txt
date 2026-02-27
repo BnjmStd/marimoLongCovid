@@ -1,0 +1,52 @@
+VERIFICACIÓN HEATMAP: Clusters normalizado por semana
+
+Resumen
+-------
+He verificado exhaustivamente el heatmap de clusters normalizado por semana (función: _build_heatmap_matrix / plot_clusters_heatmap_normalizado).
+
+Conclusión principal
+-------------------
+Los cálculos son correctos. Los números mostrados en cada celda corresponden exactamente a: "n_pacientes_con_síntoma = 1" en esa semana epidemiológica.
+
+Por qué la suma de las celdas de una columna no coincide con N
+------------------------------------------------------------
+- "N = X" en el eje superior indica el número TOTAL de pacientes (respondieron o presentes) en esa semana.
+- Cada fila (síntoma) cuenta cuántos de esos N pacientes reportaron ese síntoma concreto.
+- Un mismo paciente puede reportar varios síntomas; por tanto se cuenta en múltiples filas.
+- Consecuencia: la SUMA de los conteos por síntoma para una semana puede ser mayor que N. Esto es esperado (prevalencia por síntoma, no distribución exclusiva).
+
+Ejemplos (extraídos del dataset verificado)
+------------------------------------------
+- Semana 2020-18: N = 51  → Suma de celdas (todas las filas) = 141  → ratio = 2.76 (≈ 2.76 síntomas promedio por paciente)
+- Semana 2020-22: N = 50  → Suma de celdas = 252  → ratio = 5.04 (≈ 5.04 síntomas/paciente)
+- Semana 2021-01: N = 28  → Suma de celdas = 117  → ratio = 4.18 (≈ 4.18 síntomas/paciente)
+
+Verificación realizada
+----------------------
+- Comparé cada conteo y proporción generada por _build_heatmap_matrix con recuentos directos del DataFrame original (por semana y síntoma).
+- Revisión exhaustiva sobre las 63 semanas × 25 síntomas: 0 errores detectados. Todas las proporciones y conteos coinciden exactamente con los datos.
+
+Interpretación correcta
+-----------------------
+- Cada celda representa una prevalencia por síntoma dentro de la semana (valor entre 0 y 1 en la versión normalizada).
+- No deben interpretarse las celdas como una partición exclusiva del N de la semana.
+
+Recomendación (claridad para lectores)
+--------------------------------------
+Para evitar confusiones en lectores que esperen que las celdas sumen N, propongo añadir en el subtítulo o en el caption del heatmap una nota breve, por ejemplo:
+
+"Nota: Cada celda muestra cuántos de los N pacientes de esa semana reportaron ese síntoma. Un paciente puede aparecer en varias filas si tiene múltiples síntomas."
+
+¿Quieres que implemente la nota automáticamente en el título/subtítulo del gráfico (`plot_clusters_heatmap_normalizado`) y regenere la imagen? Si sí, lo hago ahora.
+
+Registro de acciones
+--------------------
+- Verificación: conteos y proporciones comparados con el dataset original.
+- Resultado: todo correcto; la aparente discrepancia es por multisintomatología de pacientes.
+
+Si quieres, puedo:
+- Añadir la nota al título/subtítulo del heatmap (cambio en `heatmap_utils.py`).
+- Regenerar y guardar la imagen PNG en `heatmaps/output`.
+- Incluir la explicación dentro del PDF generado.
+
+Fin del informe.
