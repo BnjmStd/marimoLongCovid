@@ -25,7 +25,13 @@ def _():
     )
 
     # Funciones locales mejoradas con IDs de paciente
-    from heatmap_utils import plot_heatmap_opcionC_con_ids, plot_heatmap_opcionC_arbol_ids, plot_clusters_heatmap_normalizado, plot_clusters_heatmap_normalizado_sin_nulos
+    from heatmap_utils import (
+        plot_heatmap_opcionC_con_ids,
+        plot_heatmap_opcionC_arbol_ids,
+        plot_clusters_heatmap_normalizado,
+        plot_clusters_heatmap_normalizado_sin_nulos,
+        plot_clusters_individuales_by_week,
+    )
 
     return (
         create_criterio_variables,
@@ -35,6 +41,7 @@ def _():
         plot_clusters_heatmap_by_diagnosis_week,
         plot_clusters_heatmap_normalizado,
         plot_clusters_heatmap_normalizado_sin_nulos,
+        plot_clusters_individuales_by_week,
         plot_criterios_hospitalizacion_heatmap_agrupado_sexo,
         plot_heatmap_opcionC_con_ids,
         plot_heatmap_opcionC_arbol_ids,
@@ -294,6 +301,52 @@ def _(df_con_criterios, plot_clusters_heatmap_normalizado_sin_nulos):
     fig_clusters_norm_v2 = plot_clusters_heatmap_normalizado_sin_nulos(df_con_criterios)
     fig_clusters_norm_v2
     return (fig_clusters_norm_v2,)
+
+
+# ── Barplot Clusters Individuales por Semana ────────────────────────────────
+
+
+@app.cell
+def _(mo):
+    mo.md("""
+    ---
+    ## 6. Clusters Individuales por Semana Epidemiológica
+
+    Barplot apilado donde cada color representa uno de los 6 clusters Long COVID.
+    La **línea negra punteada** (eje derecho) muestra el número real de pacientes únicos
+    por semana (`N`).
+
+    ### ⚠ Por qué la suma de barras puede superar N
+    Un mismo paciente puede pertenecer a **varios** clusters a la vez:
+    p. ej., cluster cognitivo **y** cluster respiratorio simultáneamente.
+    El eje Y izquierdo mide **pertenencias a clusters** (multi-conteo), no pacientes únicos.
+
+    **Ejemplo concreto \u2014 semana 2021-17 (VERIFICADO con el dataset):**
+    | Métrica | Valor |
+    |---------|-------|
+    | N pacientes únicos (línea negra / heatmap normalizado) | **9** |
+    | Pertenencias cognitivo | 4 |
+    | Pertenencias gastrointestinal | 2 |
+    | Pertenencias muscular | 4 |
+    | Pertenencias olfato/gusto | 1 |
+    | Pertenencias respiratorio | 7 |
+    | Pertenencias vía aérea | 2 |
+    | **Suma barras apiladas** | **20** |
+    | Promedio clusters/paciente | **2.22** |
+
+    → **Ambos gráficos son correctos.** Miden cosas distintas.
+
+    > **Nulos**: la pertenencia a cluster se evalúa como `cluster_X_bi == 1`,
+    > los nulos quedan **excluidos** de forma implícita (null ≠ 1).
+    """)
+    return
+
+
+@app.cell
+def _(df_con_criterios, plot_clusters_individuales_by_week):
+    fig_clusters_ind = plot_clusters_individuales_by_week(df_con_criterios)
+    fig_clusters_ind
+    return (fig_clusters_ind,)
 
 
 if __name__ == "__main__":

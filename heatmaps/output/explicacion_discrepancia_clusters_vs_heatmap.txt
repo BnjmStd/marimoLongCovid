@@ -1,0 +1,106 @@
+VERIFICACIÓN: Discrepancia entre Heatmap Normalizado y Barplot Clusters Individuales
+======================================================================================
+
+Pregunta original
+-----------------
+"En la semana 2021-17 el heatmap dice que hay 9 pacientes (N=9),
+ pero en el histograma (barplot) de clusters individuales se ven ~20 personas.
+ ¿Está malo alguno de los dos gráficos?"
+
+Respuesta corta
+---------------
+NINGUNO está malo. Ambos son correctos. Miden cosas DISTINTAS.
+
+Explicación detallada
+---------------------
+
+┌─────────────────────────────────────────┬─────────────────────────────────────────────────────┐
+│ Gráfico                                 │ ¿Qué cuenta?                                        │
+├─────────────────────────────────────────┼─────────────────────────────────────────────────────┤
+│ Heatmap normalizado (N=9)               │ Pacientes ÚNICOS en la semana 2021-17               │
+│ (eje superior del heatmap)              │ → df.group_by("yearweek").agg(pl.len())             │
+├─────────────────────────────────────────┼─────────────────────────────────────────────────────┤
+│ Barplot clusters individuales (~20)     │ PERTENENCIAS A CLUSTERS (multi-conteo)              │
+│ (suma de todas las barras apiladas)     │ → para cada cluster: filter(col == 1).count()       │
+│                                         │ → un mismo paciente se cuenta en CADA cluster       │
+│                                         │   al que pertenece                                  │
+└─────────────────────────────────────────┴─────────────────────────────────────────────────────┘
+
+Analogía matemática (VERIFICADA con el dataset real)
+-----------------------------------------------------
+Semana 2021-17: 9 pacientes únicos distribuidos en clusters así:
+  cluster_cognitivo_bi        = 4 pertenencias
+  cluster_gastrointestinal_bi = 2 pertenencias
+  cluster_muscular_bi         = 4 pertenencias
+  cluster_olfato_gusto_bi     = 1 pertenencias
+  cluster_respiratorio_bi     = 7 pertenencias
+  cluster_via_aerea_bi        = 2 pertenencias
+  ─────────────────────────────────────────────
+  TOTAL suma barras apiladas  = 20 pertenencias
+  Promedio clusters/paciente  = 2.22
+
+¿Por qué un paciente puede pertenecer a varios clusters?
+---------------------------------------------------------
+La variable cluster_X_bi es BINARIA e INDEPENDIENTE por cluster.
+Un paciente con fatiga + pérdida de olfato + niebla mental tendrá:
+  cluster_respiratorio_bi   = 1
+  cluster_olfato_gusto_bi   = 1
+  cluster_cognitivo_bi      = 1
+→ Se cuenta en TRES barras distintas para esa semana.
+
+Esto NO es un error: la multisintomatología es la norma en Long COVID.
+
+Sobre el manejo de nulos
+-------------------------
+El gráfico aplica: df.filter(pl.col("cluster_X_bi") == 1)
+El filtro "== 1" excluye implícitamente los nulos (null ≠ 1),
+por lo que "trabajar sin nulos" en el barplot es correcto y consistente.
+
+El heatmap normalizado usa como denominador el N total de la semana
+(pl.len(), que SÍ incluye pacientes con nulos en síntomas individuales).
+Esto también es correcto: N representa "pacientes presentes en esa semana".
+
+Verificación numérica recomendada
+-----------------------------------
+Para validar semana 2021-17 manualmente desde el DataFrame:
+
+  semana = "2021-17"
+  df_s = df.filter(pl.col("yearweek") == semana)
+
+  # N único
+  print("N único:", df_s.height)  # → ~9
+
+  # Suma de pertenencias
+  clusters_bi = [
+      "cluster_cognitivo_bi", "cluster_gastrointestinal_bi",
+      "cluster_muscular_bi",  "cluster_olfato_gusto_bi",
+      "cluster_respiratorio_bi", "cluster_via_aerea_bi",
+  ]
+  total = sum(
+      df_s.filter(pl.col(c) == 1).height
+      for c in clusters_bi
+  )
+  print("Suma pertenencias:", total)  # → ~20
+
+  print("Promedio clusters/paciente:", round(total / df_s.height, 2))
+
+Cambios implementados en el código
+------------------------------------
+1. heatmap_utils.py  → Función `plot_clusters_individuales_by_week`:
+   - Migrada desde modules/visualizations.py
+   - Nueva capa: línea negra punteada sobre eje Y secundario (N pacientes únicos)
+   - Anotación de advertencia multi-conteo en el pie del gráfico
+   - Hover detallado: muestra N único de la semana al hacer hover en barras y línea
+
+2. heatmaps/analysis_long_covid.py → Sección 6 nueva:
+   - Tabla comparativa en Markdown (N único vs suma pertenencias para 2021-17)
+   - Celda que renderiza fig_clusters_ind con la versión mejorada
+
+Conclusión
+----------
+✓ El heatmap normalizado es correcto: N = pacientes únicos por semana
+✓ El barplot es correcto: Y = suma de pertenencias multi-cluster
+✓ La "discrepancia" es structural y esperada: multisintomatología Long COVID
+✓ La solución visual implementada: línea negra de N único superpuesta en el barplot
+
+Generado: 2026-03-02

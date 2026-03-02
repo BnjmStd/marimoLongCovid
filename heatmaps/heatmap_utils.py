@@ -667,6 +667,151 @@ _SINTOMAS_IMAGEN: list[tuple[str, str, str]] = [
 ]
 
 
+# ── Barplot clusters individuales por semana (migrado desde modules/) ────────
+
+def plot_clusters_individuales_by_week(df: pl.DataFrame) -> go.Figure:
+    """
+    Barplot apilado por semana mostrando cada cluster individual con su color.
+
+    NOTA METODOLÓGICA — ¿Por qué el total de barras puede superar N?
+    ─────────────────────────────────────────────────────────────────
+    Un mismo paciente puede pertenecer a **varios** clusters simultáneamente
+    (p. ej., cluster_cognitivo_bi = 1 Y cluster_respiratorio_bi = 1).
+    Por eso el eje Y cuenta **pertenencias a clusters** (multi-conteo), NO
+    pacientes únicos.  La línea negra superpuesta indica el N real de pacientes
+    únicos en cada semana.
+
+    Ejemplo: semana 2021-17 → N=9 pacientes úni-cos, pero suma de pertenencias
+    ≈ 20 si cada paciente pertenece en promedio a ~2.2 clusters.
+
+    Args:
+        df: DataFrame con columnas ``cluster_*_bi`` y ``yearweek``.
+            Se asume que los valores son 1 (pertenece) o 0/null (no pertenece);
+            los nulls se excluyen de forma implícita por el filtro ``== 1``.
+
+    Returns:
+        Figura Plotly con barras apiladas + línea de N único de pacientes.
+    """
+    all_weeks = sorted(df.select("yearweek").unique().to_series().to_list())
+
+    clusters = [
+        ("cluster_via_aerea_bi",        "Vía Aérea",       "#1abc9c"),
+        ("cluster_cognitivo_bi",        "Cognitivo",        "#9b59b6"),
+        ("cluster_gastrointestinal_bi", "Gastrointestinal", "#e67e22"),
+        ("cluster_muscular_bi",         "Muscular",         "#e74c3c"),
+        ("cluster_olfato_gusto_bi",     "Olfato/Gusto",     "#f39c12"),
+        ("cluster_respiratorio_bi",     "Respiratorio",     "#3498db"),
+    ]
+
+    # N de pacientes únicos por semana (denominador real)
+    n_uniq = (
+        df.group_by("yearweek")
+        .agg(pl.len().alias("n_total"))
+        .sort("yearweek")
+        .to_dict(as_series=False)
+    )
+    n_unique_per_week: dict[str, int] = dict(
+        zip(n_uniq["yearweek"], n_uniq["n_total"])
+    )
+
+    fig = go.Figure()
+
+    memberships_per_week: dict[str, int] = {w: 0 for w in all_weeks}
+
+    for col, name, color in clusters:
+        if col not in df.columns:
+            continue
+        df_cl = (
+            df.filter(pl.col(col) == 1)
+            .group_by("yearweek")
+            .agg(pl.len().alias("n"))
+        )
+        cl_dict: dict[str, int] = {w: 0 for w in all_weeks}
+        for row in df_cl.iter_rows(named=True):
+            cl_dict[row["yearweek"]] = row["n"]
+        for w in all_weeks:
+            memberships_per_week[w] += cl_dict[w]
+
+        hover_texts = [
+            f"Semana: {w}<br>"
+            f"Cluster: {name}<br>"
+            f"Pertenencias: {cl_dict[w]}<br>"
+            f"<b>N pacientes únicos en semana: {n_unique_per_week.get(w, 0)}</b>"
+            for w in all_weeks
+        ]
+
+        fig.add_trace(go.Bar(
+            x=all_weeks,
+            y=[cl_dict[w] for w in all_weeks],
+            name=name,
+            marker_color=color,
+            hovertext=hover_texts,
+            hoverinfo="text",
+        ))
+
+    # Línea de N único de pacientes (eje secundario)
+    fig.add_trace(go.Scatter(
+        x=all_weeks,
+        y=[n_unique_per_week.get(w, 0) for w in all_weeks],
+        mode="lines+markers",
+        name="N pacientes únicos",
+        yaxis="y2",
+        line=dict(color="black", width=2, dash="dot"),
+        marker=dict(size=5, color="black"),
+        hovertext=[
+            f"Semana: {w}<br>"
+            f"<b>N pacientes únicos: {n_unique_per_week.get(w, 0)}</b><br>"
+            f"Suma pertenencias: {memberships_per_week.get(w, 0)}"
+            for w in all_weeks
+        ],
+        hoverinfo="text",
+    ))
+
+    fig.update_layout(
+        title=(
+            "Casos por Semana Epidemiológica — Clusters Individuales<br>"
+            "<sup>Barras = pertenencias a clusters (multi-conteo) | "
+            "Línea negra = N pacientes únicos por semana</sup>"
+        ),
+        xaxis_title="Semana Epidemiológica",
+        yaxis=dict(
+            title="Pertenencias a clusters (multi-conteo)",
+            showgrid=True,
+        ),
+        yaxis2=dict(
+            title="N pacientes únicos",
+            overlaying="y",
+            side="right",
+            showgrid=False,
+            zeroline=False,
+        ),
+        barmode="stack",
+        template="plotly_white",
+        height=550,
+        width=1400,
+        xaxis=dict(type="category", tickangle=-45, tickfont=dict(size=8)),
+        legend=dict(orientation="v", yanchor="top", y=1, xanchor="right", x=1.18),
+        annotations=[
+            dict(
+                x=0.5, y=-0.18,
+                xref="paper", yref="paper",
+                text=(
+                    "⚠ Un paciente puede pertenecer a múltiples clusters simultáneamente → "
+                    "la suma de barras puede superar N.<br>"
+                    "La línea punteada negra (eje derecho) muestra los pacientes únicos reales por semana."
+                ),
+                showarrow=False,
+                font=dict(size=9, color="#555"),
+                align="center",
+                xanchor="center",
+            )
+        ],
+        margin=dict(b=130),
+    )
+
+    return fig
+
+
 def plot_clusters_heatmap_normalizado_sin_nulos(df: pl.DataFrame) -> go.Figure:
     """
     Heatmap de síntomas (figura del paper) × semana epidemiológica.
