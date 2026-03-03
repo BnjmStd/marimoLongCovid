@@ -489,7 +489,7 @@ def _build_heatmap_matrix(
 
         # Una sola pasada sobre el DataFrame por síntoma
         agg_exprs = [
-            (pl.col(var_col) == 1).sum().alias("n1"),
+            pl.col(var_col).cast(pl.Int32).eq(1).sum().alias("n1"),
         ]
         if exclude_nulls:
             agg_exprs.append(pl.col(var_col).is_not_null().sum().alias("n_denom"))
@@ -532,13 +532,19 @@ def _build_heatmap_matrix(
     return heatmap_z, heatmap_text, heatmap_counts, symptom_labels, cluster_boundaries, all_weeks, n_per_week
 
 
-def plot_clusters_heatmap_normalizado(df: pl.DataFrame) -> go.Figure:
+def plot_clusters_heatmap_normalizado(
+    df: pl.DataFrame, show_numbers: bool = True
+) -> go.Figure:
     """
     Heatmap de síntomas (por cluster) × semana epidemiológica, **normalizado**.
 
     Cada celda = n_pacientes_con_síntoma / n_total_pacientes_en_esa_semana.
     Muestra el conteo absoluto (n) dentro de cada celda y el N total de la
-    semana en las etiquetas del eje X.
+    semana en las etiquetas del eje X cuando ``show_numbers=True``.
+
+    Args:
+        df: DataFrame con columnas de síntomas y ``yearweek``.
+        show_numbers: Si ``True`` (defecto), muestra n1 dentro de cada celda.
     """
     heatmap_z, heatmap_text, heatmap_counts, symptom_labels, cluster_boundaries, all_weeks, n_per_week = (
         _build_heatmap_matrix(df, _SINTOMAS_POR_CLUSTER, exclude_nulls=False)
@@ -548,26 +554,27 @@ def plot_clusters_heatmap_normalizado(df: pl.DataFrame) -> go.Figure:
     n_top_labels = [f"N={n_per_week.get(w, 0)}" for w in all_weeks]
 
     # ── Figura ───────────────────────────────────────────────────────────────
-    fig = go.Figure(data=go.Heatmap(
+    heatmap_kwargs: dict = dict(
         z=heatmap_z,
         x=all_weeks,
         y=symptom_labels,
         colorscale="Viridis",
-        zmin=0, zmax=1,
         colorbar=dict(
             title="Proportion",
             tickformat=".0%",
-            tickvals=[0, 0.25, 0.50, 0.75, 1.0],
         ),
         hoverongaps=False,
-        # Conteo n1 visible en la celda
-        text=heatmap_counts,
-        texttemplate="%{text}",
-        textfont=dict(size=7),
         # Hover detallado usando customdata
         customdata=heatmap_text,
         hovertemplate="%{customdata}<extra></extra>",
-    ))
+    )
+    if show_numbers:
+        # Conteo n1 visible en la celda
+        heatmap_kwargs["text"] = heatmap_counts
+        heatmap_kwargs["texttemplate"] = "%{text}"
+        heatmap_kwargs["textfont"] = dict(size=7)
+
+    fig = go.Figure(data=go.Heatmap(**heatmap_kwargs))
 
     # Scatter invisible que ancla el eje superior (xaxis2) con los N por semana
     fig.add_trace(go.Scatter(
@@ -578,6 +585,11 @@ def plot_clusters_heatmap_normalizado(df: pl.DataFrame) -> go.Figure:
         mode="markers",
         marker=dict(opacity=0, size=0),
     ))
+
+    # Calcular zmax real para escalar el color a los datos efectivos
+    all_z_flat = [v for row in heatmap_z for v in row if v > 0]
+    z_auto_max = max(all_z_flat) if all_z_flat else 1.0
+    fig.data[0].update(zmin=0, zmax=z_auto_max)
 
     # Separadores entre clusters
     shapes = []
@@ -625,6 +637,14 @@ def plot_clusters_heatmap_normalizado(df: pl.DataFrame) -> go.Figure:
     )
 
     return fig
+
+
+def plot_clusters_heatmap_normalizado_sin_numeros(df: pl.DataFrame) -> go.Figure:
+    """
+    Idéntico a ``plot_clusters_heatmap_normalizado`` pero sin mostrar el
+    conteo n1 dentro de cada celda (útil para impresión / PDF vectorial).
+    """
+    return plot_clusters_heatmap_normalizado(df, show_numbers=False)
 
 
 # ── Síntomas según la figura del paper (imagen de referencia) ────────────────
@@ -749,64 +769,20 @@ def plot_clusters_individuales_by_week(df: pl.DataFrame) -> go.Figure:
             hoverinfo="text",
         ))
 
-    # Línea de N único de pacientes (eje secundario)
-    fig.add_trace(go.Scatter(
-        x=all_weeks,
-        y=[n_unique_per_week.get(w, 0) for w in all_weeks],
-        mode="lines+markers",
-        name="N pacientes únicos",
-        yaxis="y2",
-        line=dict(color="black", width=2, dash="dot"),
-        marker=dict(size=5, color="black"),
-        hovertext=[
-            f"Semana: {w}<br>"
-            f"<b>N pacientes únicos: {n_unique_per_week.get(w, 0)}</b><br>"
-            f"Suma pertenencias: {memberships_per_week.get(w, 0)}"
-            for w in all_weeks
-        ],
-        hoverinfo="text",
-    ))
-
     fig.update_layout(
-        title=(
-            "Casos por Semana Epidemiológica — Clusters Individuales<br>"
-            "<sup>Barras = pertenencias a clusters (multi-conteo) | "
-            "Línea negra = N pacientes únicos por semana</sup>"
-        ),
+        title="Casos por Semana Epidemiológica — Clusters Individuales",
         xaxis_title="Semana Epidemiológica",
         yaxis=dict(
-            title="Pertenencias a clusters (multi-conteo)",
+            title="Pertenencias a clusters",
             showgrid=True,
-        ),
-        yaxis2=dict(
-            title="N pacientes únicos",
-            overlaying="y",
-            side="right",
-            showgrid=False,
-            zeroline=False,
         ),
         barmode="stack",
         template="plotly_white",
         height=550,
         width=1400,
         xaxis=dict(type="category", tickangle=-45, tickfont=dict(size=8)),
-        legend=dict(orientation="v", yanchor="top", y=1, xanchor="right", x=1.18),
-        annotations=[
-            dict(
-                x=0.5, y=-0.18,
-                xref="paper", yref="paper",
-                text=(
-                    "⚠ Un paciente puede pertenecer a múltiples clusters simultáneamente → "
-                    "la suma de barras puede superar N.<br>"
-                    "La línea punteada negra (eje derecho) muestra los pacientes únicos reales por semana."
-                ),
-                showarrow=False,
-                font=dict(size=9, color="#555"),
-                align="center",
-                xanchor="center",
-            )
-        ],
-        margin=dict(b=130),
+        legend=dict(orientation="v", yanchor="top", y=1, xanchor="right", x=1.10),
+        margin=dict(b=80),
     )
 
     return fig

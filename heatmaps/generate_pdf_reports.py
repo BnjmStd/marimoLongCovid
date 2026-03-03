@@ -11,7 +11,7 @@ Uso:
     python heatmaps/generate_pdf_reports.py
 """
 
-import os
+import re
 import sys
 from pathlib import Path
 
@@ -20,13 +20,6 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 HEATMAPS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(HEATMAPS_DIR))
-
-from reportlab.lib.colors import HexColor
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
 # Imports de módulos del proyecto
 from modules import (
@@ -41,7 +34,9 @@ from heatmap_utils import (
     plot_heatmap_opcionC_con_ids,
     plot_heatmap_opcionC_arbol_ids,
     plot_clusters_heatmap_normalizado,
+    plot_clusters_heatmap_normalizado_sin_numeros,
     plot_clusters_heatmap_normalizado_sin_nulos,
+    plot_clusters_individuales_by_week,
 )
 
 # Generador de tabla TXT
@@ -51,97 +46,35 @@ from generate_table_opcionC import generate_txt_table
 OUTPUT_DIR = Path(__file__).resolve().parent / "pdf_reports"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
-IMG_DIR = OUTPUT_DIR / "temp_images"
-IMG_DIR.mkdir(exist_ok=True)
-
 
 # ── Utilidades ──────────────────────────────────────────────────────────────
 
+
 def clean_filename(title: str) -> str:
     """Limpia el título para usarlo como nombre de archivo."""
-    import re
     cleaned = re.sub(r'[^\w\s-]', '', title)
     cleaned = re.sub(r'[-\s]+', '_', cleaned)
     return cleaned[:100]
 
 
-def save_plotly_figure_as_image(
-    fig, filename: str, width: int = 1200, height: int = 800
-) -> str | None:
-    """Guarda una figura de Plotly como imagen PNG."""
-    img_path = IMG_DIR / f"{filename}.png"
+def save_plotly_as_vector_pdf(
+    fig,
+    output_path: Path,
+    width: int = 1400,
+    height: int = 900,
+) -> bool:
+    """
+    Guarda una figura Plotly directamente como **PDF vectorial** usando kaleido.
+    No requiere reportlab ni imágenes temporales PNG.
+    """
     try:
-        fig.write_image(str(img_path), width=width, height=height)
+        fig.write_image(str(output_path), format="pdf", width=width, height=height)
+        return True
     except Exception as e:
-        print(f"   ⚠️  kaleido falló, intentando orca: {e}")
-        try:
-            import plotly.io as pio
-            pio.write_image(fig, str(img_path), format="png", width=width, height=height)
-        except Exception as e2:
-            print(f"   ❌ Error guardando imagen: {e2}")
-            return None
-    return str(img_path)
-
-
-def create_pdf_report(
-    title: str,
-    interpretation: str,
-    image_path: str,
-    output_filename: str,
-) -> None:
-    """Crea un PDF con título + gráfico (imagen)."""
-    pdf_path = OUTPUT_DIR / output_filename
-
-    doc = SimpleDocTemplate(
-        str(pdf_path),
-        pagesize=letter,
-        rightMargin=0.75 * inch,
-        leftMargin=0.75 * inch,
-        topMargin=1 * inch,
-        bottomMargin=0.75 * inch,
-    )
-
-    styles = getSampleStyleSheet()
-
-    title_style = ParagraphStyle(
-        "CustomTitle",
-        parent=styles["Heading1"],
-        fontSize=16,
-        textColor=HexColor("#2c3e50"),
-        spaceAfter=20,
-        alignment=TA_CENTER,
-        fontName="Helvetica-Bold",
-    )
-
-    normal_style = ParagraphStyle(
-        "CustomNormal",
-        parent=styles["Normal"],
-        fontSize=11,
-        leading=16,
-        alignment=TA_LEFT,
-        spaceAfter=12,
-        fontName="Helvetica",
-    )
-
-    story = []
-    story.append(Paragraph(title, title_style))
-    story.append(Spacer(1, 0.3 * inch))
-
-    if image_path and os.path.exists(image_path):
-        available_width = letter[0] - 1.5 * inch
-        available_height = letter[1] - 2 * inch
-        img = Image(
-            image_path,
-            width=available_width,
-            height=available_height,
-            kind="proportional",
-        )
-        story.append(img)
-    else:
-        story.append(Paragraph("<i>Imagen no disponible</i>", normal_style))
-
-    doc.build(story)
-    print(f"   ✅ PDF creado: {pdf_path.name}")
+        print(f"   ❌ Error generando PDF vectorial: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
 
 # ── Generación ──────────────────────────────────────────────────────────────
@@ -266,60 +199,80 @@ Eje X: Semana epidemiológica | Eje Y: Síntomas individuales (agrupados por clu
             "interpretation": """
 **Heatmap de síntomas (figura del paper) × semana — NORMALIZADO sin nulos**
 
-Síntomas replicados exactamente desde la figura de referencia:
-- AIRWAYS: Nasal congestion, Cough, Hoarsely, Sore throat
-- COGNITIVE: Depression/Anxiety, Memory impairment, Drowsiness, Insomnia
-- GASTROINTESTINAL: Abdominal pain, Nausea, Chills, Edema, Diarrhea, Weight loss, Reduced appetite
-- MUSCULAR: Muscle pain, Joint pain, Legs feel heavy
-- RESPIRATORY: Shortness of breath, Fatigue, Breathing difficulty
-- SMELL/TASTE: Anosmia, Change in smell, Ageusia, Change in taste
-
+Síntomas replicados exactamente desde la figura de referencia.
 Denominador corregido: se excluyen NULLs por columna y semana.
-Cada celda = n con síntoma = 1 / n que respondieron esa pregunta en esa semana.
+            """,
+        },
+        # ── Heatmap Normalizado por semana — SIN números en celda ────────
+        {
+            "function": plot_clusters_heatmap_normalizado_sin_numeros,
+            "args": (df_con_criterios,),
+            "title": "Heatmap Clusters Normalizado por Semana Sin Numeros",
+            "img_width": 1400,
+            "img_height": 900,
+            "interpretation": """
+**Heatmap de síntomas (por cluster) × semana epidemiológica — NORMALIZADO**
+
+Idéntico al heatmap normalizado estándar pero sin mostrar el conteo n
+dentro de cada celda (versión limpia para publicación / PDF vectorial).
+            """,
+        },
+        # ── Barplot clusters individuales por semana ──────────────────────
+        {
+            "function": plot_clusters_individuales_by_week,
+            "args": (df_con_criterios,),
+            "title": "Clusters Individuales por Semana Epidemiologica",
+            "img_width": 1400,
+            "img_height": 600,
+            "interpretation": """
+**Barplot apilado por semana — Clusters Individuales Long COVID**
+
+Barras = pertenencias a clusters (multi-conteo, un paciente puede pertenecer
+a varios clusters simultáneamente).
+Línea negra punteada (eje derecho) = N pacientes únicos por semana.
             """,
         },
     ]
 
-    print(f"\n📝 Generando {len(reports)} reportes PDF...")
+    print(f"\n📝 Generando {len(reports)} PDFs vectoriales...")
     print("-" * 70)
 
+    generated, failed = [], []
     for i, report in enumerate(reports, 1):
-        print(f"\n{i}/{len(reports)} — {report['title']}")
+        title = report["title"]
+        print(f"\n{i}/{len(reports)} — {title}")
 
         try:
             print("   🎨 Generando gráfico...")
             fig = report["function"](*report["args"])
 
-            print("   💾 Guardando imagen temporal...")
-            img_filename = clean_filename(report["title"])
-            img_w = report.get("img_width", 1200)
-            img_h = report.get("img_height", 800)
-            img_path = save_plotly_figure_as_image(fig, img_filename, width=img_w, height=img_h)
+            pdf_filename = f"{clean_filename(title)}.pdf"
+            pdf_path = OUTPUT_DIR / pdf_filename
+            w = report.get("img_width", 1400)
+            h = report.get("img_height", 900)
 
-            if img_path is None:
-                print("   ⚠️  Saltando (no se pudo generar imagen)")
-                continue
-
-            print("   📄 Creando PDF...")
-            pdf_filename = f"{clean_filename(report['title'])}.pdf"
-            create_pdf_report(
-                report["title"],
-                report["interpretation"],
-                img_path,
-                pdf_filename,
-            )
+            print("   📄 Guardando PDF vectorial...")
+            ok = save_plotly_as_vector_pdf(fig, pdf_path, width=w, height=h)
+            if ok:
+                print(f"   ✅ {pdf_filename}")
+                generated.append(pdf_filename)
+            else:
+                failed.append(title)
 
         except Exception as e:
             print(f"   ❌ Error: {e}")
             import traceback
             traceback.print_exc()
+            failed.append(title)
             continue
 
     print("\n" + "=" * 70)
     print("✅ PROCESO COMPLETADO")
     print("=" * 70)
-    print(f"\n📁 PDFs generados en: {OUTPUT_DIR.absolute()}")
-    print(f"🗑️  Imágenes temporales en: {IMG_DIR.absolute()}")
+    print(f"\n📁 PDFs vectoriales en: {OUTPUT_DIR.absolute()}")
+    print(f"   Generados: {len(generated)} | Fallidos: {len(failed)}")
+    if failed:
+        print("   Fallidos:", failed)
     print("=" * 70)
 
 

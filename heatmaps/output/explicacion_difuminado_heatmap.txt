@@ -1,0 +1,51 @@
+Explicación: por qué el heatmap se veía “difuminado” y qué hicimos
+
+1) Qué era el "difuminado"
+- El mapa de colores (paleta Viridis) se aplicaba siempre usando la escala fija 0 → 1 (0% → 100%).
+- Si los valores reales de las celdas estaban, por ejemplo, entre 0% y 30%, todos esos valores se asignaban al tramo inferior de la paleta (el extremo frío, azul oscuro).
+- Resultado visual: la mayoría de celdas aparecen muy oscuras y las diferencias pequeñas entre ellas no son fáciles de distinguir. Esto es lo que llamas "difuminado".
+
+2) Causa técnica
+- En Plotly el Heatmap puede recibir `zmin` y `zmax`. Antes el código forzaba `zmin=0` y `zmax=1`, por eso la paleta siempre cubría el rango 0–100%.
+- Con `zmax` alto pero los datos con un máximo bajo, el color se concentra en la misma parte de la paleta.
+
+3) Qué hemos cambiado
+- Ahora calculamos el máximo real de los valores positivos (máximo observado de proporciones) y usamos `zmin=0` y `zmax=zmax_real`.
+- Efecto: la paleta se escala al rango efectivo de los datos, de modo que el valor máximo observado se muestra con el color más cálido de la paleta; las demás celdas se distribuyen a lo largo de la paleta y las diferencias son más visibles.
+
+4) Qué NO cambia
+- No se cambió ningún número ni proporción: los valores (n_casos / denominador_por_semana) son exactamente los mismos.
+- Solo cambia cómo esos números se traducen a colores para mejorar la percepción visual.
+
+5) Consecuencias y consideraciones
+- Ventaja: mejor contraste y visibilidad de diferencias entre semanas/síntomas en la misma figura.
+- Desventaja: pierde comparabilidad directa con otras figuras si esas usan una escala fija (0–100%).
+
+6) Opciones si prefieres otra conducta
+- Mantener `zmax=1` (0–100%) para comparabilidad entre figuras.
+- Usar un `zmax` fijado manualmente (ej. 0.4) como compromiso.
+- Usar un percentil (ej. 95º) como `zmax` para ignorar picos atípicos y mantener rango útil.
+
+7) Notas sobre denominadores y números en celda
+- `exclude_nulls=False` (heatmap normalizado): denominador = total de pacientes por semana.
+- `exclude_nulls=True` (sin nulos): denominador = número de respondientes para esa pregunta en la semana.
+- Si el denominador es 0, se pone proporción = 0 para evitar división por cero.
+- Los números en celda son texto; mostrarlos o no no cambia los colores.
+
+8) Cómo regenerar los PDFs (vectoriales)
+Desde la raíz del proyecto ejecuta:
+
+```bash
+python heatmaps/generate_pdf_reports.py
+```
+
+Los PDFs generados quedarán en: `heatmaps/pdf_reports/`.
+
+9) Archivos modificados (referencia)
+- `heatmaps/heatmap_utils.py` — escala automática `zmax`, opción `show_numbers`, y limpieza de conteos.
+- `heatmaps/generate_pdf_reports.py` — exportación directa a PDF vectorial (kaleido).
+
+---
+Si quieres, puedo:
+- Regenerar los PDFs ahora y subir el resultado, o
+- Cambiar la estrategia de escala a una fija o a percentil (dime cuál prefieres).

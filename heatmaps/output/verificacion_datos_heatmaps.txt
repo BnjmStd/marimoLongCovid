@@ -1,0 +1,145 @@
+VERIFICACIÓN NUMÉRICA COMPLETA — HEATMAPS LONG COVID
+======================================================
+Fecha verificación : 2026-03-03
+Dataset            : longcovid_2020W13-2021W22.csv
+Total pacientes    : 1505
+Total semanas      : 63  (2020-13 → 2021-22)
+Errores encontrados: 0
+
+
+1. N ÚNICO POR SEMANA (denominador del heatmap normalizado)
+------------------------------------------------------------
+Este N es el que aparece en la etiqueta superior del eje X del
+heatmap normalizado (N=...). Se calcula como:
+   df.group_by("yearweek").agg(pl.len())
+
+  2020-13:  10    2020-14:  21    2020-15:  11    2020-16:  18
+  2020-17:  14    2020-18:  51    2020-19:  24    2020-20:  31
+  2020-21:  42    2020-22:  50    2020-23:  56    2020-24:  47
+  2020-25:  44    2020-26:  41    2020-27:  37    2020-28:  31
+  2020-29:  38    2020-30:  35    2020-31:  28    2020-32:  34
+  2020-33:  29    2020-34:  32    2020-35:  36    2020-36:  56
+  2020-37:  40    2020-38:  50    2020-39:  71    2020-40:  56
+  2020-41:  27    2020-42:  23    2020-43:  23    2020-44:  25
+  2020-45:  14    2020-46:  17    2020-47:  19    2020-48:  26
+  2020-49:  16    2020-50:  13    2020-51:  22    2020-52:  18
+  2020-53:  34    2021-01:  28    2021-02:  22    2021-03:  20
+  2021-04:  19    2021-05:   9    2021-06:   8    2021-07:   2
+  2021-08:   7    2021-09:  21    2021-10:   4    2021-11:   7
+  2021-12:   4    2021-13:  13    2021-14:   4    2021-15:   1
+  2021-16:   3    2021-17:   9    2021-18:   4    2021-19:   3
+  2021-20:   2    2021-21:   2    2021-22:   3
+
+✓ Confirmado: el N que muestra el heatmap en el eje superior
+  coincide exactamente con pl.len() por semana.
+
+
+2. VERIFICACIÓN SEMANA 2021-17 (caso de referencia documentado)
+----------------------------------------------------------------
+Pregunta original en explicacion_discrepancia_clusters_vs_heatmap.txt:
+"¿Por qué el heatmap dice N=9 y el barplot muestra ~20?"
+
+   N único de la semana : 9  ✓  (coincide con lo documentado)
+
+   Pertenencias por cluster:
+     Vía Aérea         :  2
+     Cognitivo         :  4
+     Gastrointestinal  :  2
+     Muscular          :  4
+     Olfato/Gusto      :  1
+     Respiratorio      :  7
+     ─────────────────────
+     SUMA pertenencias : 20  ✓  (coincide con lo documentado)
+     Promedio /paciente: 2.22
+
+   Explicación del multi-conteo (ya verificado con datos reales):
+   Un paciente con fatiga + pérdida de olfato + niebla mental tiene:
+     cluster_respiratorio_bi = 1
+     cluster_olfato_gusto_bi = 1
+     cluster_cognitivo_bi    = 1
+   → Ese paciente se cuenta en TRES barras para esa semana.
+   → Esto NO es un error. Es la multisintomatología de Long COVID.
+
+   Nulos en el barplot:
+   El filtro pl.col(col) == 1 excluye implícitamente los nulos
+   (null ≠ 1 en Polars), por eso no se necesita tratamiento especial.
+
+   N en heatmap normalizado:
+   Usa pl.len() que SÍ incluye pacientes con nulos en síntomas.
+   Esto es correcto: N representa "pacientes en esa semana".
+
+
+3. VERIFICACIÓN PROPORCIONES — HEATMAP NORMALIZADO
+---------------------------------------------------
+Comparación entre _build_heatmap_matrix (código) y cálculo manual.
+Fórmula: proporción = n_casos_con_síntoma / N_total_semana
+
+   Síntoma               | Semana  | n1/N    | Proporción | ¿OK?
+   ───────────────────────────────────────────────────────────────
+   Fatigue               | 2020-23 | 18/56   | 32.1%      |  ✓
+   Fatigue               | 2020-39 | 22/71   | 31.0%      |  ✓
+   Fatigue               | 2021-17 |  8/9    | 88.9%      |  ✓
+   Anosmia               | 2020-23 | 13/56   | 23.2%      |  ✓
+   Anosmia               | 2020-39 | 10/71   | 14.1%      |  ✓
+   Anosmia               | 2021-17 |  1/9    | 11.1%      |  ✓
+   Depression/Anxiety    | 2020-23 | 19/56   | 33.9%      |  ✓
+   Depression/Anxiety    | 2020-39 | 22/71   | 31.0%      |  ✓
+   Depression/Anxiety    | 2021-17 |  4/9    | 44.4%      |  ✓
+   Muscle pain           | 2020-23 |  5/56   |  8.9%      |  ✓
+   Muscle pain           | 2020-39 | 19/71   | 26.8%      |  ✓
+   Muscle pain           | 2021-17 |  3/9    | 33.3%      |  ✓
+
+   Total verificaciones  : 12
+   Errores encontrados   : 0  ✓✓✓
+
+
+4. ESCALA DE COLOR DEL HEATMAP (zmin / zmax)
+---------------------------------------------
+Antes (hardcodeado): zmin=0, zmax=1 → todo el heatmap en la zona
+   oscura de Viridis (valores reales estaban en 0–40%).
+
+Ahora (automático) : zmin=0, zmax = máximo real de la matriz.
+   El máximo REAL verificado en el dataset es: 1.0000 = 100%
+
+   ¿Por qué hay una celda con proporción 100%?
+   Semana 2021-20 (N=2, solo 2 pacientes en esa semana):
+     Headache  : 2/2 = 100%  ✓ (dato real, no error)
+     Muscle pain: 2/2 = 100%  ✓ (dato real, no error)
+     Fatigue   : 2/2 = 100%  ✓ (dato real, no error)
+   Semana 2021-21 (N=2):
+     Fatigue   : 2/2 = 100%  ✓ (dato real, no error)
+
+   También hay proporciones muy altas en 2021-17 debido al N pequeño:
+     Fatigue   : 8/9 = 88.9%
+
+   Conclusión sobre el zmax:
+   Como hay valores legítimos al 100%, zmax_auto = 1.0, que es
+   equivalente a la escala anterior. La diferencia visual se notará
+   más en datasets donde el máximo real sea < 100%.
+
+   Implicación: si quieres mayor contraste visual, usa un percentil
+   como zmax, ej. zmax = percentil_95 de los valores > 0.
+   Esto recortaría los picos de las semanas con N pequeño (2–3 pacientes)
+   y daría más contraste al rango principal de datos.
+
+
+5. CONCLUSIONES FINALES
+------------------------
+✓ Los N del heatmap normalizado son correctos (pl.len() por semana)
+✓ Las proporciones de síntomas en el heatmap son exactas (12/12 verificadas)
+✓ Los conteos del barplot de clusters son correctos (multi-conteo esperado)
+✓ El multi-conteo en semana 2021-17 es correcto: 9 pacientes, 20 pertenencias
+✓ Los nulos se manejan correctamente en ambos gráficos
+✓ El zmax=1.0 es real: semanas 2020 y 2021 con N=2 tienen síntomas al 100%
+
+Una posible mejora futura:
+  → Usar zmax = percentil 95 de valores > 0 para dar más contraste
+    visual en el rango "normal" del heatmap, sacrificando la representación
+    de semanas con N muy pequeño (N=1,2,3).
+
+Archivos fuente verificados:
+  - heatmaps/heatmap_utils.py  → _build_heatmap_matrix(),
+                                  plot_clusters_heatmap_normalizado(),
+                                  plot_clusters_individuales_by_week()
+  - modules/data_loader.py     → load_data()
+  - modules/transformations.py → create_criterio_variables()
